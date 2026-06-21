@@ -9,6 +9,7 @@
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/react" },
+    { "path": "../../packages/react-ui" },
     { "path": "../../packages/renderer-2d" },
     { "path": "../../packages/client" }
   ]

@@ -19,7 +19,7 @@ export default function Home(): JSX.Element {
             <Translate>Read the docs</Translate>
           </Link>
           <span> </span>
-          <Link className="button button--secondary button--lg" to="/architecture">
+          <Link className="button button--secondary button--lg" to="/docs/architecture">
             View architecture
           </Link>
         </div>

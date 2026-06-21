@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
-import { Canvas } from '@catshark/react';
+import { MapScene, DrawToolbar } from '@catshark/react-ui';
 import {
   createTerraDraw2DRenderer,
   type TerraDraw2DRenderer,
 } from '@catshark/renderer-2d';
 import { OSM_RASTER_STYLE } from '@catshark/client';
-import { DrawToolbar } from './DrawToolbar';
 
 const DEFAULT_CENTER: [number, number] = [-3.6, 50.604];
 const DEFAULT_ZOOM = 13;
@@ -22,9 +21,8 @@ export function MapView() {
   );
 
   return (
-    <div className="map-wrapper">
-      <Canvas renderer={renderer} className="map-view" />
+    <MapScene renderer={renderer}>
       <DrawToolbar />
-    </div>
+    </MapScene>
   );
 }

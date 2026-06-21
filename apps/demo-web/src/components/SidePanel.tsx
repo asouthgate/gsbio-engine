@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
-import { DataSection } from './DataSection';
-import { ModelPanel } from './ModelPanel';
+import { FeatureList, ModelForm } from '@catshark/react-ui';
 
 interface SectionDef {
   id: string;
@@ -45,8 +44,8 @@ export function SidePanel() {
   };
 
   const renderBody = (id: string) => {
-    if (id === 'data') return <DataSection />;
-    if (id === 'model') return <ModelPanel />;
+    if (id === 'data') return <FeatureList />;
+    if (id === 'model') return <ModelForm />;
     if (id === 'help') return <HelpContent />;
     return null;
   };

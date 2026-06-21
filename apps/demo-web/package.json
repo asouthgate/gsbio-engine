@@ -13,6 +13,7 @@
     "@catshark/client": "workspace:*",
     "@catshark/core": "workspace:*",
     "@catshark/react": "workspace:*",
+    "@catshark/react-ui": "workspace:*",
     "@catshark/renderer-2d": "workspace:*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

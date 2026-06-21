@@ -10,7 +10,11 @@ const config: Config = {
   baseUrl: '/',
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   presets: [
     [
@@ -30,7 +34,7 @@ const config: Config = {
       title: 'Catshark Engine',
       items: [
         { type: 'doc', docId: 'intro', position: 'left', label: 'Docs' },
-        { to: '/architecture', label: 'Architecture', position: 'left' },
+        { to: '/docs/architecture', label: 'Architecture', position: 'left' },
         { href: 'https://github.com/anomalyco/catshark-engine', label: 'GitHub', position: 'right' },
       ],
     },

@@ -5,6 +5,7 @@
     { "path": "./packages/react" },
     { "path": "./packages/renderer-2d" },
     { "path": "./packages/renderer-3d" },
+    { "path": "./packages/react-ui" },
     { "path": "./packages/client" }
   ]
 }
