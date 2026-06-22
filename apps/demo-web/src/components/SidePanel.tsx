@@ -10,7 +10,7 @@ interface SectionDef {
 }
 
 const SECTIONS: SectionDef[] = [
-  { id: 'data', icon: '📍', label: 'Data', defaultOpen: true },
+  { id: 'data', icon: '🗎', label: 'Data', defaultOpen: true },
   { id: 'model', icon: '⚙', label: 'Model', defaultOpen: true },
   { id: 'results', icon: '✓', label: 'Results' },
   { id: 'help', icon: 'ⓘ', label: 'Help' },
