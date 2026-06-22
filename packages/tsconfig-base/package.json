@@ -1,0 +1,7 @@
+{
+  "name": "@catshark/tsconfig-base",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "files": ["base.json", "react.json"]
+}

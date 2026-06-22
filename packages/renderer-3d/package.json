@@ -1,0 +1,23 @@
+{
+  "name": "@catshark/renderer-3d",
+  "version": "0.0.1",
+  "description": "3D (WebGPU/WebGL) renderer for @catshark/core. Stub — not implemented yet.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "peerDependencies": {
+    "@catshark/core": "workspace:*"
+  },
+  "dependencies": {
+    "@catshark/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}

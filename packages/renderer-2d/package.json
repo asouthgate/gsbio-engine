@@ -1,0 +1,30 @@
+{
+  "name": "@catshark/renderer-2d",
+  "version": "0.0.1",
+  "description": "2D renderer for @catshark/core: MapLibre + TerraDraw adapter packaged as a Renderer plugin.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "peerDependencies": {
+    "@catshark/core": "workspace:*",
+    "maplibre-gl": "^5.0.0",
+    "terra-draw": "^1.31.0",
+    "terra-draw-maplibre-gl-adapter": "^1.4.0"
+  },
+  "dependencies": {
+    "@catshark/core": "workspace:*",
+    "maplibre-gl": "^5.24.0",
+    "terra-draw": "^1.31.2",
+    "terra-draw-maplibre-gl-adapter": "^1.4.1"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^24.0.0"
+  }
+}
