@@ -364,13 +364,18 @@ html, body, #root {
 }
 
 .data-feature-type {
+  display: inline-block;
   width: 90px;
   background: var(--bg-dark);
   border: 1px solid var(--border);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   border-radius: var(--radius-sm);
   font-size: 11px;
   padding: 3px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
 }
 
 .data-feature-label {
@@ -422,6 +427,85 @@ html, body, #root {
   min-width: 140px;
 }
 
+.data-prop-label {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* ---------- Geometry inspector (collapsible, per-kind) ----------- */
+
+.data-feature-disclosure {
+  font-size: 11px;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.data-feature-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+.data-feature-fields .data-prop {
+  gap: 4px;
+}
+
+.data-vertex-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.data-vertex-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.data-vertex-index {
+  font-size: 10px;
+  color: var(--text-dim);
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.data-vertex-input {
+  width: 80px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 4px;
+}
+
+.data-vertex-remove {
+  font-size: 10px;
+  padding: 1px 4px;
+}
+
+.data-vertex-add {
+  margin-top: 4px;
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), border-color var(--transition);
+}
+.data-vertex-add:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
 .data-prop input[type="number"] {
   width: 60px;
   background: var(--bg-dark);
@@ -430,6 +514,14 @@ html, body, #root {
   border-radius: var(--radius-sm);
   font-size: 11px;
   padding: 2px 4px;
+}
+
+.data-feature-fields .data-prop input.data-vertex-input {
+  background: var(--bg-input);
+  width: 80px;
+  font-size: 12px;
+  padding: 4px 6px;
+  color: var(--text-primary);
 }
 
 .data-prop input[type="range"] {
