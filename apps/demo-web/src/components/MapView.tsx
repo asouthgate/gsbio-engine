@@ -22,7 +22,14 @@ export function MapView() {
 
   return (
     <MapScene renderer={renderer}>
-      <DrawToolbar />
+      <DrawToolbar
+        tools={[
+          { mode: 'point', label: 'Point'},
+          { mode: 'linestring', label: 'Line'},
+          { mode: 'circle', label: 'Circle', icon: '⚪' },
+          { mode: 'circle', label: 'Custom_radius', icon: '⭕' }
+        ]} 
+      />
     </MapScene>
   );
 }
