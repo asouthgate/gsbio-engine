@@ -21,7 +21,7 @@ Three rules follow:
 | Layer | Responsibility | Package |
 | --- | --- | --- |
 | Data source / storage | Manage raw GIS / map data, feature attributes, spatial indexing. | `@catshark/core` (registries) + `@catshark/client` (fetching) |
-| Analysis plugin | Take inputs, perform math, return results. | `@catshark/core` (`ModelDef` + `ComputeProvider`) |
+| Analysis plugin | Take inputs, perform math, return results. | `@catshark/core` (`ModelDef` + `Executor`) |
 | Engine core | Coordinate events, provide the projection service, own the state tree. | `@catshark/core` (`SimulationEngine`) |
 | View (React / Canvas) | Listen for state changes and paint. | `@catshark/react` + `@catshark/react-ui` + a renderer plugin |
 
@@ -52,7 +52,7 @@ The headless engine. **No React, no maplibre, no network.** Single source of tru
 
 Key exports:
 
-- `SimulationEngine` / `createSimulationEngine()` — the stateful coordinator. Owns draw / model / run state trees, listeners, an optional `MapActions` bridge (registered by the mounted renderer), and a per-model `ComputeProvider` registry.
+- `SimulationEngine` / `createSimulationEngine()` — the stateful coordinator. Owns draw / model / run state trees, listeners, an optional `MapActions` bridge (registered by the mounted renderer), and a per-model `Executor` registry.
 - State slices `drawSlice`, `modelSlice`, `runSlice` — pure reducers, unit-tested in `environment: 'node'` (no jsdom).
 - Registries: `registerModel` / `registerDataSource`, plus `ensureDefaultModels` / `ensureDefaultDataSources` for bootstrap.
 - `CoordinateService` and pure spatial helpers (`pointInPolygon`, `polygonArea`, `haversineDistanceMeters`).
@@ -60,7 +60,7 @@ Key exports:
 
 Engine ↔ React goes through `useSyncExternalStore` (`engine.subscribe` / `engine.getSnapshot`); the engine imports nothing from React. Engine ↔ renderer goes through the `Renderer` port (`mount` / `unmount`) plus an imperative `MapActions` bridge the renderer registers via `engine.setMapActions()`; if no renderer is attached, the calls are skipped — headless operation works without one.
 
-The run pipeline (`engine.run()`) is async, single-in-flight, and cancellable. `ComputeProvider` splits into `preprocess` (browser-side: simplify, reproject, validate, build payload) and `submit` (the expensive backend roundtrip / streaming compute). Both receive the engine's `AbortSignal` so cancellation is observable.
+The run pipeline (`engine.run()`) is async, single-in-flight, and cancellable. `Executor` splits into `preprocess` (browser-side: simplify, reproject, validate, build payload) and `submit` (the expensive backend roundtrip / streaming compute). Both receive the engine's `AbortSignal` so cancellation is observable. An `Executor` executes computations *for* a model; it is bound to a model by id at registration time and is not part of the model — a single `Executor` implementation may be compatible with multiple models.
 
 ## `@catshark/react`
 

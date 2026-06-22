@@ -3,15 +3,15 @@ import { createRoot } from 'react-dom/client';
 import { createSimulationEngine } from '@catshark/core';
 import { AppProvider } from '@catshark/react';
 import { App } from './components/App';
-import { installCustomRadiusRaster } from './models/customRadiusRaster';
+import { installRadialSpread } from './models/radialSpread';
 import './styles/index.css';
 
-// Construct a single engine instance, register our demo model + provider, and
-// select the model — then hand the engine to <AppProvider>. Apps pass an
-// explicit `engine` to <AppProvider> whenever they need to wire providers
+// Construct a single engine instance, install our demo model + its executor,
+// and select the model — then hand the engine to <AppProvider>. Apps pass an
+// explicit `engine` to <AppProvider> whenever they need to wire executors
 // (the default path constructs an empty engine with only the built-ins).
 const engine = createSimulationEngine();
-installCustomRadiusRaster(engine);
+installRadialSpread(engine);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

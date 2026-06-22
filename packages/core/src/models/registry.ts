@@ -1,4 +1,4 @@
-import type { ComputeProvider, ModelDef } from '../types';
+import type { Executor, ModelDef } from '../types';
 import { helloWorldModel } from './helloWorld';
 
 const models = new Map<string, ModelDef>();
@@ -35,19 +35,19 @@ export function ensureDefaultModels(): void {
   bootstrap();
 }
 
-/* --------------------------- Compute providers --------------------------- */
+/* ------------------------------- Executors ------------------------------- */
 
 /**
- * Default in-browser compute provider for the hello-world stub model. Performs
+ * Default in-browser executor for the hello-world stub model. Performs
  * a no-op preprocess + submit (yields an empty GeoJSON result envelope) so the
  * full pipeline can be exercised end-to-end without a backend.
  *
  * Honours `signal` so cancellation is observable; sleep is simulated via
  * `setTimeout` to demonstrate an async submit shaped like a real backend call.
  */
-export const noopComputeProvider: ComputeProvider = {
+export const noopExecutor: Executor = {
   async preprocess(ctx, signal) {
-    // Real models reproject/simplify/validate here. The stub just echoes.
+    // Real executors reproject/simplify/validate here. The stub just echoes.
     void ctx;
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
     return { payload: { params: ctx.params, featureCount: ctx.features.length } };
@@ -75,10 +75,10 @@ export const noopComputeProvider: ComputeProvider = {
   },
 };
 
-/** Seed `providers` map with the built-in compute providers. Called once per
+/** Seed `executors` map with the built-in executors. Called once per
  *  engine instance from the `SimulationEngine` constructor. */
-export function ensureDefaultComputeProviders(
-  providers: Map<string, ComputeProvider>,
+export function ensureDefaultExecutors(
+  executors: Map<string, Executor>,
 ): void {
-  if (!providers.has('hello-world')) providers.set('hello-world', noopComputeProvider);
+  if (!executors.has('hello-world')) executors.set('hello-world', noopExecutor);
 }

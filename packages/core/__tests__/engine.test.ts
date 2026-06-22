@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   createSimulationEngine,
-  type ComputeProvider,
+  type Executor,
   type DrawnFeature,
   type LngLat,
   type MapActions,
@@ -166,16 +166,16 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** Build a fake `ComputeProvider` with cancelable delays and progress. */
+/** Build a fake `Executor` with cancelable delays and progress. */
 function makeProvider(opts?: {
   preprocessMs?: number;
   submitMs?: number;
   submitProgress?: { count: number; delayMs: number };
   fail?: string | undefined;
   failAfter?: number;
-}): { provider: ComputeProvider; calls: { preprocess: number; submit: number; progress: number } } {
+}): { provider: Executor; calls: { preprocess: number; submit: number; progress: number } } {
   const calls = { preprocess: 0, submit: 0, progress: 0 };
-  const provider: ComputeProvider = {
+  const provider: Executor = {
     async preprocess(ctx, signal) {
       calls.preprocess++;
       void ctx;
@@ -232,7 +232,7 @@ describe('run pipeline', () => {
       preprocessMs: 5,
       submitProgress: { count: 3, delayMs: 5 },
     });
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     const run = engine.getSnapshot().run.current!;
     expect(run.status).toBe('succeeded');
@@ -249,7 +249,7 @@ describe('run pipeline', () => {
   it('cancelRun aborts an in-flight submit and marks cancelled', async () => {
     const { engine } = engineWithRun();
     const { provider, calls } = makeProvider({ submitMs: 500 });
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     const p = engine.run();
     // let it start submitting
     await new Promise((r) => setTimeout(r, 30));
@@ -263,27 +263,27 @@ describe('run pipeline', () => {
   it('a failed submit records the error message', async () => {
     const { engine } = engineWithRun();
     const { provider } = makeProvider({ fail: 'backend down', failAfter: 5 });
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     const run = engine.getSnapshot().run.current!;
     expect(run.status).toBe('failed');
     expect(run.error).toBe('backend down');
   });
 
-  it('missing compute provider fails immediately with a useful message', async () => {
+  it('missing executor fails immediately with a useful message', async () => {
     const { engine } = engineWithRun();
-    // swap to a model with no provider registered
+    // swap to a model with no executor registered
     engine.dispatchModel({ type: 'SET_MODEL', payload: 'no-such-model' });
     await engine.run();
     const run = engine.getSnapshot().run.current!;
     expect(run.status).toBe('failed');
-    expect(run.error).toContain('No compute provider');
+    expect(run.error).toContain('No executor');
   });
 
   it('starting a second run cancels the first; both records preserved', async () => {
     const { engine } = engineWithRun();
     const { provider } = makeProvider({ submitMs: 300 });
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     const first = engine.run();
     await new Promise((r) => setTimeout(r, 20));
     const second = engine.run();
@@ -298,7 +298,7 @@ describe('run pipeline', () => {
   it('showResult / hideResult call map actions', async () => {
     const { engine, actions } = engineWithRun();
     const { provider } = makeProvider();
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
     engine.showResult(runId);
@@ -313,7 +313,7 @@ describe('run pipeline', () => {
   it('clearResult removes the layer if it was visible', async () => {
     const { engine, actions } = engineWithRun();
     const { provider } = makeProvider();
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
     engine.showResult(runId);
@@ -325,7 +325,7 @@ describe('run pipeline', () => {
   it('clearAllResults removes all visible layers and resets state', async () => {
     const { engine, actions } = engineWithRun();
     const { provider } = makeProvider();
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     engine.showResult(engine.getSnapshot().run.current!.runId);
     engine.clearAllResults();
@@ -345,7 +345,7 @@ describe('run pipeline', () => {
       ],
       summary: { count: 2 },
     };
-    const provider: ComputeProvider = {
+    const provider: Executor = {
       async preprocess() { return { payload: null }; },
       async submit(_ctx, signal) {
         void _ctx;
@@ -353,7 +353,7 @@ describe('run pipeline', () => {
         return multiLayerResult;
       },
     };
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
 
@@ -401,7 +401,7 @@ describe('run pipeline', () => {
   it('showResult is a no-op on a run with zero result layers', async () => {
     const { engine, actions } = engineWithRun();
     const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
-    const provider: ComputeProvider = {
+    const provider: Executor = {
       async preprocess() { return { payload: null }; },
       async submit(_ctx, signal) {
         void _ctx;
@@ -409,7 +409,7 @@ describe('run pipeline', () => {
         return { summary: { only: true } }; // no layers
       },
     };
-    engine.registerComputeProvider('hello-world', provider);
+    engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
     engine.showResult(runId);

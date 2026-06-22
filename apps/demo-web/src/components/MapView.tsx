@@ -27,7 +27,7 @@ export function MapView() {
           { mode: 'point', label: 'Point'},
           { mode: 'linestring', label: 'Line'},
           { mode: 'circle', label: 'Circle', icon: '⚪' },
-          { mode: 'circle', label: 'Custom_radius', icon: '⭕' }
+          { mode: 'circle', label: 'Spread_zone', icon: '⭕' }
         ]} 
       />
     </MapScene>

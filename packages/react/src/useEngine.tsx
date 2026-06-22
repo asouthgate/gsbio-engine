@@ -81,7 +81,7 @@ export function useDraw(): DrawHook {
 /* ------------------------------- useModel ------------------------------- */
 //
 // Schema-only: choose model + edit params. The act of running lives in
-// `useRun` / `useResults` (the `ComputeProvider` port owns network).
+// `useRun` / `useResults` (the `Executor` port owns network).
 
 export interface ModelHook {
   state: EngineState['model'];

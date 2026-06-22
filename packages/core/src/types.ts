@@ -73,10 +73,13 @@ export interface ModelParamDef {
   default: number;
 }
 
-/** A model plugin registered with the engine. Pure schema only — the act of
- *  computing happens in the model's `ComputeProvider` (registered separately
- *  via `engine.registerComputeProvider`). Models subscribe to data, not to
- *  the canvas or network (see architecture/core.md). */
+/** A model plugin registered with the engine. Pure schema only — it describes
+ *  the model's identity and its parameters, nothing else. The act of computing
+ *  happens in a separate `Executor` (registered via `engine.registerExecutor`),
+ *  which is bound to a model *by id* at registration time and is not part of
+ *  the model. A single `Executor` implementation may in theory be compatible
+ *  with multiple models and bound to each one separately. Models subscribe to
+ *  data, not to the canvas or network (see architecture/core.md). */
 export interface ModelDef {
   id: string;
   name: string;
@@ -97,7 +100,7 @@ export type ModelParams = Record<string, number>;
 //
 // Both stages receive an `AbortSignal`; starting a new run cancels the in-flight one.
 
-/** Input to a `ComputeProvider.preprocess`. Engine builds this from the
+/** Input to an `Executor.preprocess`. Engine builds this from the
  *  current draw state + the active model's params. */
 export interface PreprocessContext {
   modelId: string;
@@ -115,8 +118,8 @@ export interface PreprocessResult {
   warnings?: string[];
 }
 
-/** Input to a `ComputeProvider.submit`. Includes the preprocessed payload and
- *  an `onProgress` callback the provider may invoke to drive the UI indicator. */
+/** Input to an `Executor.submit`. Includes the preprocessed payload and
+ *  an `onProgress` callback the executor may invoke to drive the UI indicator. */
 export interface SubmitContext {
   modelId: string;
   params: ModelParams;
@@ -208,13 +211,17 @@ export function extractLayerEnvelope(result: RunResult): MapLayerEnvelope | null
 }
 
 /**
- * Port the dev implements to bring their model to life. Both methods are
- * cancelable via the supplied `AbortSignal`; failing to honour abort means
- * stale responses may still arrive and be ignored by the engine.
+ * Port the dev implements to execute a model's computation. Both methods are
+ * required and cancelable via the supplied `AbortSignal`; failing to honour
+ * abort means stale responses may still arrive and be ignored by the engine.
  *
- * Register one provider per model id via `engine.registerComputeProvider(modelId, provider)`.
+ * An `Executor` is *not* part of a model — it executes the required
+ * computations *for* a model. It is bound to a model by id at registration
+ * time via `engine.registerExecutor(modelId, executor)`. A single `Executor`
+ * implementation may be compatible with multiple models and bound to each one
+ * separately.
  */
-export interface ComputeProvider {
+export interface Executor {
   /** Browser-side transformation: simplify, reproject, validate, build the
    *  network payload. Runs synchronously in the test/build environment. */
   preprocess(ctx: PreprocessContext, signal: AbortSignal): PreprocessResult | Promise<PreprocessResult>;
@@ -258,9 +265,18 @@ export type RunProgressStep = 'preprocess' | 'submit' | 'stream';
 // shape — only renderers interpret the envelope.
 
 /**
- * A self-describing layer the renderer knows how to draw. New kinds are
- * added to this union as renderers grow; the engine passes `unknown`
- * through and the renderer narrows via `kind`.
+ * A descriptor telling the renderer how to draw **one** layer onto the map.
+ *
+ * Think of it as a labelled envelope posted to the renderer: inside is
+ * either vector data (GeoJSON, carried inline), a URL pointing at a tile
+ * service, or a URL pointing at a georeferenced image plus the lng/lat bounds
+ * that pin it to the globe. The envelope is the *carrier*, not the pixels —
+ * for the `tiles` and `image` kinds the renderer is responsible for fetching
+ * the actual bytes from `url`.
+ *
+ * It is a closed union: the renderer narrows via the `kind` field. New kinds
+ * are added here as renderers grow; the engine itself passes the envelope
+ * through as `unknown` and stays oblivious to its shape.
  */
 export type MapLayerEnvelope =
   | { kind: 'geojson'; data: GeoJSON.FeatureCollection }

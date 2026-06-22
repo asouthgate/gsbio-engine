@@ -1,12 +1,18 @@
 /**
- * Stub compute executor — a reusable, headless backend simulator.
+ * Stub executor — a reusable, headless backend simulator that an `Executor`
+ * may use *inside* its `submit` to fake server latency/progress before a real
+ * backend exists.
  *
- * Real model providers (`ComputeProvider`) ship in their own code; expensive
- * `submit` roundtrips happen against an actual backend. The `StubExecutor`
- * takes a pure dev-supplied **kernel** (the domain math + payload → result)
- * and wraps it with simulated network/compute behaviour so a model looks and
- * behaves like it was submitted to a server: queue latency, streaming
- * progress ticks, and cooperative cancellation via `AbortSignal`.
+ * Real model executors (the `Executor` port in `types.ts`) ship in their own
+ * code; expensive `submit` roundtrips happen against an actual backend. The
+ * `StubExecutor` takes a pure dev-supplied **kernel** (the domain math +
+ * payload → result) and wraps it with simulated network/compute behaviour so
+ * a model looks and behaves like it was submitted to a server: queue latency,
+ * streaming progress ticks, and cooperative cancellation via `AbortSignal`.
+ *
+ * Note: `StubExecutor` is a *utility*, not an `Executor` itself — it has no
+ * `preprocess`/`submit` methods. The dev's `Executor.submit` calls
+ * `stubExecutor.run(...)` to drive its kernel.
  *
  * It is intentionally framework- and host-agnostic — no DOM, no `fetch`, no
  * canvas. That keeps it unit-testable in pure Node without a graphics stack

@@ -1,6 +1,6 @@
 import type {
   CircleGeometry,
-  ComputeProvider,
+  Executor,
   DrawMapActions,
   DrawMode,
   DrawnFeature,
@@ -18,7 +18,7 @@ import {
   type LngLat,
 } from './spatial';
 import { ensureDefaultDataSources } from './data/sourceRegistry';
-import { ensureDefaultModels, ensureDefaultComputeProviders } from './models/registry';
+import { ensureDefaultModels, ensureDefaultExecutors } from './models/registry';
 import {
   drawReducer,
   initialDrawState,
@@ -55,7 +55,7 @@ export type EngineListener = () => void;
  * Headless simulation engine — the single source of truth for the data model
  * and runtime state. Owns the draw state tree, the model run state tree, the
  * run pipeline state, and the connections to whatever renderer is currently
- * attached (via `MapActions`) and which compute providers are registered for
+ * attached (via `MapActions`) and which executors are registered for
  * each model. No React / maplibre / network code lives here.
  */
 export class SimulationEngine {
@@ -63,8 +63,8 @@ export class SimulationEngine {
   private readonly _listeners = new Set<EngineListener>();
   /** Combined draw + result-layer port registered by the renderer. */
   mapActions: MapActions | null = null;
-  /** Compute providers keyed by `ModelDef.id`. */
-  private readonly _computeProviders = new Map<string, ComputeProvider>();
+  /** Executors keyed by `ModelDef.id`. */
+  private readonly _executors = new Map<string, Executor>();
   /** Active run's abort controller. `null` when no run is in flight. */
   private _abort: AbortController | null = null;
   /** Active run's promise. Used to serialise `run()` across overlapping calls. */
@@ -77,7 +77,7 @@ export class SimulationEngine {
 
   constructor() {
     ensureDefaultModels();
-    ensureDefaultComputeProviders(this._computeProviders);
+    ensureDefaultExecutors(this._executors);
     ensureDefaultDataSources();
     this._state = {
       draw: initialDrawState,
@@ -126,17 +126,17 @@ export class SimulationEngine {
     this.mapActions = actions;
   }
 
-  /* ------------------------- Compute providers -------------------------- */
+  /* ----------------------------- Executors ------------------------------ */
 
-  /** Register (or replace) the `ComputeProvider` bound to a model id.
-   *  Calling `run()` without a provider for the current model id is a
+  /** Register (or replace) the `Executor` bound to a model id.
+   *  Calling `run()` without an executor for the current model id is a
    *  `RUN_FAIL`. */
-  registerComputeProvider = (modelId: string, provider: ComputeProvider): void => {
-    this._computeProviders.set(modelId, provider);
+  registerExecutor = (modelId: string, executor: Executor): void => {
+    this._executors.set(modelId, executor);
   };
 
-  getComputeProvider = (modelId: string): ComputeProvider | undefined =>
-    this._computeProviders.get(modelId);
+  getExecutor = (modelId: string): Executor | undefined =>
+    this._executors.get(modelId);
 
   /* ----------------------------- Run pipeline --------------------------- */
 
@@ -166,13 +166,13 @@ export class SimulationEngine {
     const exec = async (): Promise<void> => {
       this.dispatchRun({ type: 'RUN_REQUEST', runId, modelId, params, startedAt });
       try {
-        const provider = this._computeProviders.get(modelId);
-        if (!provider) {
-          throw new Error(`No compute provider registered for model "${modelId}"`);
+        const executor = this._executors.get(modelId);
+        if (!executor) {
+          throw new Error(`No executor registered for model "${modelId}"`);
         }
         const features: ReadonlyArray<DrawnFeature> = this._state.draw.features;
         this.dispatchRun({ type: 'PREPROCESS_START' });
-        const { payload } = await provider.preprocess({ modelId, params, features }, ac.signal);
+        const { payload } = await executor.preprocess({ modelId, params, features }, ac.signal);
         if (ac.signal.aborted) return;
         this.dispatchRun({ type: 'SUBMIT_START' });
         const onProgress = (p: RunProgress): void => {
@@ -180,7 +180,7 @@ export class SimulationEngine {
             this.dispatchRun({ type: 'PROGRESS', payload: p });
           }
         };
-        const result = await provider.submit({ modelId, params, payload, onProgress }, ac.signal);
+        const result = await executor.submit({ modelId, params, payload, onProgress }, ac.signal);
         if (this._abort === ac && !ac.signal.aborted) {
           this.dispatchRun({ type: 'RUN_SUCCEED', result, finishedAt: Date.now() });
         }
