@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
-import { FeatureList, ModelForm } from '@catshark/react-ui';
+import { FeatureList, ModelForm, RunPanel, ResultsPanel } from '@catshark/react-ui';
 
 interface SectionDef {
   id: string;
@@ -12,6 +12,7 @@ interface SectionDef {
 const SECTIONS: SectionDef[] = [
   { id: 'data', icon: '📍', label: 'Data', defaultOpen: true },
   { id: 'model', icon: '⚙', label: 'Model', defaultOpen: true },
+  { id: 'results', icon: '✓', label: 'Results' },
   { id: 'help', icon: 'ⓘ', label: 'Help' },
 ];
 
@@ -20,7 +21,8 @@ function HelpContent() {
     <div className="help-content">
       <p><b>Catshark Engine</b> performs biological spatial modelling on maps (or other manifolds).</p>
       <p><b>To draw</b> features, use the toolbar above the map: point, line, or polygon. Each drawn feature becomes part of the <i>Drawn features</i> data source, listed in the Data section.</p>
-      <p><b>To configure a model</b>, open the Model section, choose a registered model, adjust its parameters, and click <b>Run model</b>.</p>
+      <p><b>To configure a model</b>, open the Model section, choose a registered model, and adjust its parameters.</p>
+      <p><b>To run</b>, click <b>Run model</b> in the Model section. Runs are cancellable. Completed runs appear in the Results section where you can toggle their map layer on/off.</p>
       <p>This is an open-source engine. Bugs? <a href="https://github.com/js01/dispersion-prediction-app/issues" target="_blank" rel="noopener noreferrer">Report on GitHub</a>.</p>
     </div>
   );
@@ -45,7 +47,8 @@ export function SidePanel() {
 
   const renderBody = (id: string) => {
     if (id === 'data') return <FeatureList />;
-    if (id === 'model') return <ModelForm />;
+    if (id === 'model') return (<><ModelForm /><RunPanel /></>);
+    if (id === 'results') return <ResultsPanel />;
     if (id === 'help') return <HelpContent />;
     return null;
   };

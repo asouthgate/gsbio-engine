@@ -13,14 +13,15 @@ in `core` reads `window`, `document`, or any fetch API.
 
 ```ts
 // src/index.ts
-export * from './types';          // DrawnFeature, DrawMode, ModelDef, DataSourceDef, Renderer, ...
-export * from './spatial';        // CoordinateService, pointInPolygon, polygonArea, haversineDistanceMeters
+export * from './types';          // DrawnFeature, DrawMode, ModelDef, ComputeProvider, RunStatus, MapLayerEnvelope, ...
+export * from './spatial';        // CoordinateService, pointInPolygon, polygonArea, haversineDistanceMeters, extractLayerEnvelope
 export * from './data/sourceRegistry';
 export * from './models/registry';
 export * from './models/helloWorld';
 export * from './state/drawSlice';
 export * from './state/modelSlice';
-export { SimulationEngine, createSimulationEngine, runModel } from './engine';
+export * from './state/runSlice';
+export { SimulationEngine, createSimulationEngine, type MapActions } from './engine';
 ```
 
 ## `SimulationEngine`
@@ -29,9 +30,11 @@ export { SimulationEngine, createSimulationEngine, runModel } from './engine';
 — the stateful coordinator. A single instance owns:
 
 - the **draw state tree** (features, selected feature id, current draw mode),
-- the **model state tree** (selected model id, resolved params, running flag, last-run time),
+- the **model state tree** (selected model id, resolved params),
+- the **run state tree** (the current/last run, history of past runs),
 - a set of **listeners** (the React layer subscribes via `useSyncExternalStore`),
-- a single optional **`DrawMapActions` bridge** registered by whichever renderer is currently mounted.
+- a single optional **`MapActions` bridge** — `DrawMapActions & ResultLayerActions` — registered by whichever renderer is currently mounted,
+- a per-model registry of **`ComputeProvider`** implementations (the engine never executes model logic itself).
 
 ### API
 
@@ -42,16 +45,37 @@ class SimulationEngine {
 
   dispatchDraw(action: DrawAction): void;         // raw dispatch into drawSlice
   dispatchModel(action: ModelAction): void;       // raw dispatch into modelSlice
+  dispatchRun(action: RunAction): void;           // raw dispatch into runSlice
 
-  setMapActions(actions: DrawMapActions): void;  // renderer registers its bridge
+  setMapActions(actions: MapActions): void;      // renderer registers its bridge (draw + result layers)
 
-  startDrawing(mode: DrawMode): void;
+  // Compute-provider registry
+  registerComputeProvider(modelId: string, provider: ComputeProvider): void;
+  getComputeProvider(modelId: string): ComputeProvider | undefined;
+
+  // Draw helpers
+  startDrawing(mode: DrawMode, category?: string): void;
   selectMode(): void;
-  removeFeature(id: string): void;                // dispatch + mapActions.removeFeatureFromMap
-  toggleVisibility(id: string): void;            // dispatch + mapActions.setFeatureVisibility
+  removeFeature(id: string): void;
+  toggleVisibility(id: string): void;
+  updateCircle(id: string, patch: Partial<CircleGeometry>): void;
+  updatePointPosition(id: string, lngLat: LngLat): void;
+  updateLineStringCoords(id: string, coords: LngLat[]): void;
+  updatePolygonRing(id: string, ring: LngLat[]): void;
+
+  // Run pipeline (async, single in-flight, cancellable)
+  run(): Promise<void>;                           // cancels any in-flight run, then starts a new one
+  cancelRun(): void;                              // aborts the in-flight run, if any
+
+  // Result visibility / history management
+  showResult(runId: string): void;                // adds the result layer to the map
+  hideResult(runId: string): void;                // removes the result layer
+  toggleResult(runId: string): void;
+  clearResult(runId: string): void;               // removes from history + removes map layer
+  clearAllResults(): void;
+  findRun(runId: string): RunRecord | undefined;
 }
 
-function runModel(engine: SimulationEngine, features: ReadonlyArray<DrawnFeature>): void;
 function createSimulationEngine(): SimulationEngine;
 ```
 
@@ -72,23 +96,32 @@ return immutable updates; the engine's `patch()` swaps the slice in
 ### Imperative bridge
 
 Pure state transitions can't move a marker on a canvas — they need an
-imperative call into the renderer. The engine defines the
-[`DrawMapActions`](https://github.com/anomalyco/catshark-engine/tree/main/packages/core/src/types.ts)
-contract for those escape hatches:
+imperative call into the renderer. The engine defines two port interfaces;
+a renderer implements both and registers them via `engine.setMapActions(impl)`
+during `mount()`. `MapActions` is the intersection type the renderer registers.
 
 ```ts
 interface DrawMapActions {
   removeFeatureFromMap: (id: string) => void;
   setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature) => void;
+  updateFeatureGeometry: (id: string, geojson: GeoJSON.Feature) => void;
 }
+
+interface ResultLayerActions {
+  addResultLayer: (runId: string, envelope: MapLayerEnvelope) => void;
+  removeResultLayer: (runId: string) => void;
+}
+
+type MapActions = DrawMapActions & ResultLayerActions;
 ```
 
-A renderer (`@catshark/renderer-2d`) implements this interface and registers
-it via `engine.setMapActions(impl)` during `mount()`. The engine calls into
-it after dispatching the matching state change, so the canonical record (the
-engine) updates atomically and the renderer mirrors it. If no renderer is
-attached, the calls are skipped — headless operation (Node, worker) works
-without one.
+`DrawMapActions` mirrors drawn-feature mutations (visibility, geometry swaps).
+`ResultLayerActions` mirrors post-run result layers — the renderer narrows
+the `MapLayerEnvelope` union (`geojson` / `tiles` / `image`) into native
+maplibre source+layer pairs. The engine passes the `unknown` `RunResult`
+through; the renderer interprets the envelope, so the engine never learns
+domain-specific result shapes. If no renderer is attached, the calls are
+skipped — headless operation (Node, worker) works without one.
 
 ## State slices
 
@@ -125,16 +158,12 @@ function geometryKindForMode(mode: DrawMode): GeometryKind;  // 'select' → 'po
 interface ModelState {
   modelId: string;
   params: ModelParams;            // Record<string, number>
-  isRunning: boolean;
-  lastRunAt: number | null;
 }
 
 type ModelAction =
   | { type: 'SET_MODEL'; payload: string }      // resets params to defaults
   | { type: 'SET_PARAM'; payload: { key: string; value: number } }
-  | { type: 'SET_PARAMS'; payload: ModelParams }
-  | { type: 'RUN_START' }
-  | { type: 'RUN_FINISH' };
+  | { type: 'SET_PARAMS'; payload: ModelParams };
 
 function modelReducer(state: ModelState, action: ModelAction): ModelState;
 ```
@@ -142,6 +171,59 @@ function modelReducer(state: ModelState, action: ModelAction): ModelState;
 `SET_MODEL` reads the registry's `defaultParamsFor(model)` so switching
 models always starts from the model's own defaults (never inherits the
 previous model's numbers).
+
+### `runSlice`
+
+[`packages/core/src/state/runSlice.ts`](https://github.com/anomalyco/catshark-engine/tree/main/packages/core/src/state/runSlice.ts)
+
+Owns the run pipeline: the in-flight or most-recently-finished run (`current`)
+plus an **unbounded** history of past runs (the user clears them explicitly
+via `CLEAR_RESULT` / `CLEAR_ALL_RESULTS`). Run records store the opaque
+`RunResult` raw — the engine never inspects it; the renderer's
+`ResultLayerActions` narrows the `MapLayerEnvelope` inside.
+
+```ts
+type RunStatus =
+  | 'idle' | 'preprocessing' | 'submitting' | 'running'
+  | 'succeeded' | 'failed' | 'cancelled';
+
+interface RunRecord {
+  runId: string;
+  modelId: string;
+  params: ModelParams;
+  status: RunStatus;
+  result: RunResult | null;     // opaque result from ComputeProvider.submit
+  error: string | null;
+  progress: RunProgress | null;
+  startedAt: number;
+  finishedAt: number | null;
+  visible: boolean;             // toggled by showResult/hideResult
+}
+
+type RunAction =
+  | { type: 'RUN_REQUEST'; runId: string; modelId: string; params: ModelParams; startedAt: number }
+  | { type: 'PREPROCESS_START' }
+  | { type: 'SUBMIT_START' }
+  | { type: 'PROGRESS'; payload: RunProgress }
+  | { type: 'RUN_SUCCEED'; result: RunResult; finishedAt: number }
+  | { type: 'RUN_FAIL'; error: string; finishedAt: number }
+  | { type: 'RUN_CANCEL'; finishedAt: number }
+  | { type: 'SHOW_RESULT'; runId: string }
+  | { type: 'HIDE_RESULT'; runId: string }
+  | { type: 'CLEAR_RESULT'; runId: string }
+  | { type: 'CLEAR_ALL_RESULTS' };
+
+function runReducer(state: RunState, action: RunAction): RunState;
+function toSummary(rec: RunRecord): RunSummary;     // drops `result` payload
+function allSummaries(state: RunState): RunSummary[];
+```
+
+Status transitions: `RUN_REQUEST` → `idle`; `PREPROCESS_START` →
+`preprocessing`; `SUBMIT_START` → `submitting`; `PROGRESS` with
+`step==='stream'` → `running` (other steps keep the current status);
+terminal actions flip to `succeeded` / `failed` / `cancelled`. Starting a
+new run pushes any **finished** `current` into `history` (in-flight ones are
+aborted by the orchestrator first and not retained).
 
 ### Why slices live in `core`, not in React
 
@@ -164,11 +246,54 @@ function getModel(id: string): ModelDef | undefined;
 function listModels(): ModelDef[];
 function defaultParamsFor(model: ModelDef): Record<string, number>;
 function ensureDefaultModels(): void;               // idempotent bootstrap
+
+// Compute providers (registered per engine instance)
+const noopComputeProvider: ComputeProvider;
+function ensureDefaultComputeProviders(providers: Map<string, ComputeProvider>): void;
 ```
 
-`helloWorldModel` is registered by default — a no-op stub that logs its
-params and feature count to prove the pipeline end-to-end. Replace it with
-real models by calling `registerModel` from anywhere in your app's bootstrap.
+`ModelDef` is pure schema only (id, name, params) — the act of computing is
+owned by a `ComputeProvider` registered separately via
+`engine.registerComputeProvider(modelId, provider)`. The engine pre-registers
+a `noopComputeProvider` for `hello-world` so the pipeline can be exercised
+end-to-end with no backend (delayed 50 ms, returns an empty GeoJSON envelope).
+
+A `ComputeProvider` exposes two cancelable methods:
+
+```ts
+interface ComputeProvider {
+  preprocess(ctx: PreprocessContext, signal: AbortSignal): PreprocessResult | Promise<PreprocessResult>;
+  submit(ctx: SubmitContext, signal: AbortSignal): Promise<RunResult>;
+}
+```
+
+`preprocess` runs browser-side (simplify, reproject, validate, build payload);
+`submit` performs the expensive backend roundtrip / streaming compute and
+may call `ctx.onProgress` with a `RunProgress` event. Both receive the
+engine's `AbortSignal` so cancellation is observable. Providers honouring
+abort prevent stale responses from polluting state.
+
+Replace `helloWorldModel` / `noopComputeProvider` with real models by calling
+`registerModel` + `engine.registerComputeProvider` from your app's bootstrap
+(typically alongside `@catshark/client` wiring).
+
+### Run pipeline orchestration
+
+`SimulationEngine.run()` owns the async orchestration:
+
+1. If a run is in flight, `cancelRun()` is called and the prior promise is awaited.
+2. A new `AbortController` + `runId` are minted; `RUN_REQUEST` replaces `current`.
+3. `PREPROCESS_START` → `provider.preprocess()`. Aborts short-circuit.
+4. `SUBMIT_START` → `provider.submit()`; progress events dispatch `PROGRESS`.
+5. On resolve: `RUN_SUCCEED` (status: `succeeded`, stores the result).
+6. On abort: `RUN_CANCEL` (status: `cancelled`).
+7. On other reject: `RUN_FAIL` (status: `failed`, stores `error.message`).
+8. `run()` resolves when the run has finished; callers do not need to await —
+   `useRun` never does, it only observes state.
+
+Single in-flight contract: only one `AbortController` is held at a time, and
+the engine guards terminal dispatches by `this._abort === ac` so a stale
+aborted run's terminal never overwrites a newer run's state.
 
 ### Data-source registry
 
@@ -215,8 +340,9 @@ function haversineDistanceMeters(a: LngLat, b: LngLat): number;       // great-c
 const WGS84_EARTH_RADIUS_M = 6378137;
 ```
 
-Use these inside `ModelDef.run` for spatial queries ("is this observation
-point inside the study polygon?") without touching the canvas.
+Use these inside a `ComputeProvider.preprocess` for spatial queries ("is
+this observation point inside the study polygon?") without touching the
+canvas or any network.
 
 ## `Renderer` port
 

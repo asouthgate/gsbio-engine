@@ -795,3 +795,252 @@ select:focus {
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-float) !important;
 }
+
+/* =================== RUN PANEL + RESULTS =================== */
+
+.run-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-run-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.btn-run {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-run:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-run:disabled {
+  cursor: progress;
+}
+
+.btn-run__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Sliding diagonal-stripe overlay shown while a run is active.
+   Pure CSS animation; the engine widget only toggles the element. */
+.btn-run__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.18) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.18) 75%,
+    transparent 75%,
+    transparent 100%
+  );
+  background-size: 40px 40px;
+  animation: hashSlide 0.9s linear infinite;
+  mix-blend-mode: overlay;
+}
+
+@keyframes hashSlide {
+  from { background-position: 0 0; }
+  to   { background-position: 40px 0; }
+}
+
+.btn-run--succeeded { background: var(--success); color: #fff; }
+.btn-run--failed    { background: var(--danger);  color: #fff; }
+.btn-run--cancelled { background: var(--bg-input); color: var(--text-secondary); }
+
+.btn-cancel {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-cancel:hover {
+  background: var(--bg-hover);
+}
+
+.run-progress {
+  position: relative;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.run-progress__bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s ease-out;
+}
+
+/* When `fraction` is null (indeterminate) the bar ripples instead. */
+.run-progress[aria-hidden="true"] .run-progress__bar {
+  width: 30% !important;
+  animation: progressIndeterminate 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes progressIndeterminate {
+  from { transform: translateX(-30%); }
+  to   { transform: translateX(330%); }
+}
+
+.run-error {
+  font-size: 11px;
+  color: var(--danger);
+  background: rgba(212, 68, 68, 0.1);
+  border: 1px solid rgba(212, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  line-height: 1.4;
+}
+
+/* ---- Results panel ---- */
+
+.results-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.results-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.results-panel__header h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.results-empty {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.run-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.run-item {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color var(--transition);
+}
+
+.run-item--visible {
+  border-color: var(--accent);
+}
+
+.run-item--failed {
+  border-color: rgba(212, 68, 68, 0.5);
+}
+
+.run-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.run-item__name {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.run-item__status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  background: var(--bg-dark);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.run-item--succeeded .run-item__status { color: var(--success); }
+.run-item--failed     .run-item__status { color: var(--danger);  }
+.run-item--cancelled  .run-item__status { color: var(--text-dim); }
+
+.run-item__error {
+  font-size: 11px;
+  color: var(--danger);
+  line-height: 1.3;
+}
+
+.run-item__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-ghost {
+  width: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.run-item__toggle[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(91, 141, 239, 0.1);
+}
+
+.run-item__clear {
+  margin-left: auto;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+}

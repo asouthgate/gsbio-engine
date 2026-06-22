@@ -95,22 +95,56 @@ Direction: **app → react → core → renderer-2d (via DrawMapActions)**.
 ## 5. User clicks "Run model"
 
 ```
-ModelPanel.tsx                        (apps/demo-web)
-  └─ useModel().run(drawState.features)
-       └─ runModel(engine, features)               (core)
-            ├─ def = getModel(engine.getSnapshot().model.modelId)   → helloWorldModel
-            ├─ engine.dispatchModel({ type: 'RUN_START' })
-            │   └─ <ModelPanel> re-renders; button shows "Running…" and disables
-            ├─ def.run({ params: engine.getSnapshot().model.params, features })
-            │     └─ helloWorldModel.run logs params + featureCount to console
-            └─ engine.dispatchModel({ type: 'RUN_FINISH' })
-                └─ <ModelPanel> re-renders; button re-enables,
-                   "Last run at HH:MM:SS" appears
+RunPanel.tsx                          (apps/demo-web / @catshark/react-ui)
+  └─ useRun().run()
+       └─ engine.run()                                (core)
+            ├─ If a run is in flight, engine.cancelRun() + await prior promise.
+            ├─ AbortController + runId minted; RUN_REQUEST dispatched
+            │   └─ <RunPanel> sees status='idle' (current run record appears)
+            ├─ PREPROCESS_START dispatched
+            ├─ provider.preprocess({ modelId, params, features }, signal)
+            │     └─ dev's compute provider runs (simplify/reproject/validate)
+            │        result → { payload } for the submit phase
+            ├─ SUBMIT_START dispatched
+            ├─ provider.submit({ …, payload, onProgress }, signal)
+            │   ├─ may call ctx.onProgress({ step:'stream', fraction, label })
+            │   │   - dispatched as PROGRESS → status promotes to 'running',
+            │   │     <RunPanel> updates progress bar + label
+            │   └─ returns RunResult (e.g. { layer: MapLayerEnvelope, summary })
+            └─ RUN_SUCCEED dispatched: status='succeeded', result stored
+                ├─ <RunPanel> shows "Run model" again
+                └─ <ResultsPanel> adds the run row with a "Show on map" toggle
 ```
 
-Direction: **app → react → core (model registry + dispatchModel)**. The
-model itself receives only `{ params, features }` — no React, no
-maplibre, no DOM. The model is the analysis plugin the guide describes.
+If the user clicks **Cancel**, `useRun().cancel()` calls
+`engine.cancelRun()` which aborts the in-flight `AbortController`. The
+catch block sees `signal.aborted` and dispatches `RUN_CANCEL` (status
+becomes `cancelled`). On error, `RUN_FAIL` is dispatched with the error
+message; `<RunPanel>` shows it inline.
+
+Direction: **app → react → core (run orchestrator + ComputeProvider)**. The
+provider receives `{ params, payload, onProgress }` — no React, no
+maplibre, no DOM. The provider is the compute plugin the guide describes.
+
+## 6. User toggles "Show on map" for a completed run
+
+```
+ResultsPanel.tsx                       (@catshark/react-ui)
+  └─ useResults().toggleResult(runId)
+       └─ engine.showResult(runId)  (or hideResult(runId))
+            ├─ engine.dispatchRun({ type: 'SHOW_RESULT', runId })
+            │   └─ <ResultsPanel> row's "Show on map" button shows "Hide on map"
+            └─ engine.mapActions.addResultLayer(runId, envelope)
+                 └─ TerraDraw2DRenderer's ResultLayerActions bridge:
+                    - extracts MapLayerEnvelope from RunResult
+                    - addSource + addLayer (geojson/tiles/image) under
+                      `catshark-result-${runId}` source id
+```
+
+Direction: **app → react → core → renderer-2d (via ResultLayerActions)**.
+The engine stores `RunResult = unknown`; the renderer narrows via
+`MapLayerEnvelope.kind`. Removing (hideResult) calls `removeResultLayer`
+which tears down both the layer(s) and source.
 
 ## Reconstructing visibility after a remount
 
@@ -130,7 +164,8 @@ from state alone.
 | 2. Draw polygon | `engine.dispatchDraw` (from renderer) | `core` `_state.draw.features` | side panel + toolbar |
 | 3. Edit category | `engine.dispatchDraw` (from app) | `core` `_state.draw.features[i].category` | side panel |
 | 4. Toggle visibility | `engine.dispatchDraw` + `engine.mapActions` | `core` state + canvas | side panel + canvas |
-| 5. Run model | `engine.dispatchModel` + `def.run` | `core` `_state.model` | model panel |
+| 5. Run model | `engine.dispatchRun` + `ComputeProvider` | `core` `_state.run` | run panel + results panel |
+| 6. Toggle result on map | `engine.dispatchRun` + `engine.mapActions` | `core` `_state.run[*].visible` + canvas | results panel + canvas |
 
 The engine is the **only** writer. React reads via `useSyncExternalStore`;
 the renderer reads via `engine.subscribe`. Both are notifications ("state
