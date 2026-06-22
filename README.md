@@ -1,17 +1,19 @@
 # Catshark Engine
 
-An open-source headless engine for biological spatial modelling on maps (or other manifolds).
+An open-source engine for biological spatial modelling on maps (or other manifolds).
 
 ## Implementing a model
 
-**What is a model?** A *model* is a named, parameterised computation that turns drawn map features into result layers you can toggle on the map. It has two parts that live separately:
+A *model* is a named, parameterised computation that turns drawn map features into result layers the engine can render on the map. There are two main parts:
 
-- a **schema** (`ModelDef`) — the model's id, name, and parameter list. Pure data, no behaviour.
-- an **executor** (`Executor`) — the code that actually runs the computation. It is *not* part of the model: it is bound to a model by id at registration time, and a single `Executor` implementation may in principle serve more than one model.
+- a **schema** (`ModelDef`) — the model's id, name, and parameter list.
+- an **executor** (`Executor`) — the code that runs the computation and returns result layers as **envelopes** (see §3). It is bound to a model by id at registration time, and a single `Executor` implementation may in principle serve more than one model.
 
-A bundled `hello-world` model and `noopExecutor` auto-register on engine construction (`packages/core/src/engine.ts:78-81`), so you can boot before writing your own. To ship a non-bundled model you implement four things; snippets below are trimmed from the demo app at `apps/demo-web/src/models/radialSpread.ts`.
+To use the engine you generally implement four things (see the `radialSpread` example `apps/demo-web/src/models/radialSpread.ts`):
 
-### 1. `ModelDef` — declare the model and its params
+### 1. `ModelDef`
+
+Firstly, declare the model and its params. This model is a trivial one that has only the `resolution` parameter.
 
 ```ts
 // apps/demo-web/src/models/radialSpread.ts:21-39
@@ -26,12 +28,12 @@ export const radialSpreadModel: ModelDef = {
 };
 ```
 
-### 2. `Executor` — execute the model's computation
+### 2. `Executor`
 
-An `Executor` has **two required methods**, `preprocess` and `submit`. Without an executor bound to a model id, `engine.run()` throws for that model (`packages/core/src/engine.ts:169-172`). `preprocess` runs browser-side (filter/reproject/validate features, may emit `warnings`); `submit` does the expensive work and returns one of three `RunResult` shapes (`packages/core/src/types.ts:127-200`). Honour the forwarded `AbortSignal`; call `ctx.onProgress` for progress updates.
+An `Executor` has two required methods, `preprocess` and `submit`. `preprocess` runs browser-side (filter/reproject/validate features, may emit `warnings`). `submit` does the work, e.g. submission to a compute API, direct calculation in-browser, or something else. The executor returns layers (see `ResultLayerEntry`) The executor should honour the forwarded `AbortSignal` and can call `ctx.onProgress` for progress updates.
 
 ```ts
-// apps/demo-web/src/models/radialSpread.ts:144-164
+// apps/demo-web/src/models/radialSpread.ts:159-181
 export const radialSpreadExecutor: Executor = {
   async preprocess(ctx, signal) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -43,17 +45,24 @@ export const radialSpreadExecutor: Executor = {
   },
   async submit(ctx, signal) {
     const payload = ctx.payload as RadialSpreadPayload;
-    return stubExecutor.run({ payload, onProgress: ctx.onProgress, signal }, rasterizeZones);
+    // Simulated streaming compute; emit a progress tick per step.
+    for (let i = 1; i <= SUBMIT_STEPS; i++) {
+      await delay(SUBMIT_STEP_MS, signal);
+      ctx.onProgress?.({ step: 'submit', fraction: i / SUBMIT_STEPS, label: `step ${i}/${SUBMIT_STEPS}` });
+    }
+    return rasterizeZones(payload); // returns { layers: ResultLayerEntry[], summary }
   },
 };
 ```
 
-### 3. `MapLayerEnvelope` — describe one result layer to the renderer
+### 3. `MapLayerEnvelope` — the structured return type for results
 
-A `MapLayerEnvelope` is a descriptor telling the renderer how to draw **one** layer onto the map. Think of it as a labelled envelope posted to the renderer: inside is either inline vector data (GeoJSON), a URL pointing at a tile service, or a URL pointing at a georeferenced image plus the lng/lat bounds that pin it to the globe. The envelope is the *carrier*, not the pixels — for the `tiles` and `image` kinds the renderer fetches the bytes from `url` itself. It is a closed union (`packages/core/src/types.ts:265-268`); the renderer narrows via the `kind` field and the engine stays oblivious to its shape.
+An executor doesn't return arbitrary results. It must return `ResultLayerEntry` wrappers which store `MapLayerEnvelope`. There are three kinds — a GeoJSON feature collection carried inline, a URL pointing at a tile service, or a URL pointing at a georeferenced image plus the lng/lat bounds that pin it to the globe (`packages/core/src/types.ts:265-268`). 
+
+Inside `submit`, for each result layer you want to show, pick a `kind` and construct one envelope:
 
 ```ts
-// apps/demo-web/src/models/radialSpread.ts:95-128 (pixel loop elided)
+// apps/demo-web/src/models/radialSpread.ts:107-150 (pixel loop elided)
 function rasterForZone(ctx, z, N): MapLayerEnvelope {
   // …write RGBA into ctx.canvas…
   const url = (ctx.canvas as HTMLCanvasElement).toDataURL('image/png');
@@ -62,35 +71,25 @@ function rasterForZone(ctx, z, N): MapLayerEnvelope {
   const bounds: [number, number, number, number] = [
     z.center.lng - dLng, z.center.lat - dLat, z.center.lng + dLng, z.center.lat + dLat,
   ];
-  return { kind: 'image', url, bounds };
+  return { kind: 'image', url, bounds }; // ← executor builds the envelope here
 }
 ```
 
-A run can yield 0..N such layers. Each is wrapped in a `ResultLayerEntry` (a stable `id` + its envelope), and the executor returns them as `{ layers: ResultLayerEntry[], summary? }` (`radialSpread.ts:72-91`).
+### 4. Putting it together
 
-### 4. Bootstrap — wire the engine and mount
+Instantiate the engine and install the model.
 
 ```tsx
 // apps/demo-web/src/main.tsx:13-14
 const engine = createSimulationEngine();
-installRadialSpread(engine);
-```
-
-A one-call installer is the recommended convention — register the model, bind its executor by id, then select the model:
-
-```ts
-// apps/demo-web/src/models/radialSpread.ts:167-170
-export function installRadialSpread(engine: SimulationEngine): void {
-  registerModel(radialSpreadModel);
-  engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
-  engine.dispatchModel({ type: 'SET_MODEL', payload: radialSpreadModel.id });
-}
+registerModel(radialSpreadModel);
+engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
+engine.dispatchModel({ type: 'SET_MODEL', payload: radialSpreadModel.id });
 ```
 
 Finally mount the engine via `<AppProvider>` and pass a renderer to `MapScene`/`Canvas` — the shipped `@catshark/renderer-2d` covers 2D:
 
 ```tsx
-// apps/demo-web/src/components/MapView.tsx:13-24
 const renderer = useMemo<TerraDraw2DRenderer>(
   () => createTerraDraw2DRenderer({
     style: OSM_RASTER_STYLE as never, center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM,
