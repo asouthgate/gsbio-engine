@@ -6,7 +6,7 @@ Catshark separates three concerns so models, data, and rendering stay decoupled:
 
 - **Drawing layer** — generic geometry tools (point / line / polygon / circle) that produce features. No domain semantics.
 - **Data-source layer** — a registry of data sources. Drawn features are one built-in source; uploads register the same way.
-- **Model layer** — a registry of model plugins. Each model declares a parameter schema and compute provider. The bundled `hello-world` model proves the pipeline end-to-end.
+- **Model layer** — a registry of model plugins. Each model declares a parameter schema and a separate executor runs its computation. The bundled `hello-world` model proves the pipeline end-to-end.
 
 See [architecture.md](./architecture.md) for the layer contract and package map.
 
@@ -25,23 +25,39 @@ pnpm build        # build apps via turbo
 
 ## Registering a model
 
-```ts
-import { registerModel } from '@catshark/core';
+A model is a pure schema (`ModelDef`); its computation lives in a separate `Executor`, bound to the model by id at registration time.
 
-registerModel({
+```ts
+import { createSimulationEngine, type ModelDef, type Executor } from '@catshark/core';
+
+const myModel: ModelDef = {
   id: 'my-model',
   name: 'My Model',
   params: [
     { key: 'iterations', label: 'Iterations', type: 'number', min: 1, max: 10000, default: 200 },
     { key: 'diffusionRate', label: 'Diffusion rate', type: 'range', min: 0, max: 1, step: 0.01, default: 0.2 },
   ],
-  run: ({ params, features }) => {
-    // ...your simulation...
+};
+
+const myExecutor: Executor = {
+  async preprocess(ctx, signal) {
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    return { payload: { params: ctx.params, features: ctx.features } };
   },
-});
+  async submit(ctx, signal) {
+    // ...your simulation — call ctx.onProgress for progress updates,
+    // honour the AbortSignal, return result layers as MapLayerEnvelopes...
+    return { layers: [], summary: {} };
+  },
+};
+
+const engine = createSimulationEngine();
+engine.registerModel(myModel);
+engine.registerExecutor(myModel.id, myExecutor);
+engine.dispatchModel({ type: 'SET_MODEL', payload: myModel.id });
 ```
 
-Models receive `{ params, features }` and run anywhere — browser, Web Worker, or Node. They never import React or maplibre.
+Models are pure data and never import React or maplibre; executors handle the computation and may use browser APIs (DOM canvas, workers, `fetch`) as needed.
 
 ## License
 

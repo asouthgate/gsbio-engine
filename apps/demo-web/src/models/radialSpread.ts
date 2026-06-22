@@ -1,6 +1,4 @@
 import {
-  createStubExecutor,
-  registerModel,
   type DrawnFeature,
   type Executor,
   type MapLayerEnvelope,
@@ -63,11 +61,27 @@ interface RadialSpreadPayload {
   resolution: number;
 }
 
-const stubExecutor = createStubExecutor({
-  latencyMs: 300,
-  steps: 6,
-  stepDelayMs: 80,
-});
+const SUBMIT_STEPS = 6;
+const SUBMIT_STEP_MS = 80;
+
+/** Wait `ms`, rejecting with `AbortError` if `signal` fires first. */
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(t);
+        reject(new DOMException('Aborted', 'AbortError'));
+      },
+      { once: true },
+    );
+  });
+}
 
 function rasterizeZones(payload: RadialSpreadPayload): {
   layers: ResultLayerEntry[];
@@ -122,8 +136,8 @@ function rasterForZone(
   }
   ctx.putImageData(img, 0, 0);
   const url = (ctx.canvas as HTMLCanvasElement).toDataURL('image/png');
-  // Equirectangular approximation of the zone's bbox in lng/lat — the
-  // renderer georeferences the image by these bounds (`image` envelope).
+  // Equirectangular approximation of the zone's bbox in lng/lat — the engine
+  // georeferences the image on the map using these bounds.
   const dLat = z.radiusMeters / 111_320;
   const dLng = z.radiusMeters / (111_320 * Math.cos((z.center.lat * Math.PI) / 180));
   const bounds: [number, number, number, number] = [
@@ -156,16 +170,19 @@ export const radialSpreadExecutor: Executor = {
 
   async submit(ctx, signal) {
     const payload = ctx.payload as RadialSpreadPayload;
-    return stubExecutor.run(
-      { payload, onProgress: ctx.onProgress, signal },
-      rasterizeZones,
-    );
+    // Simulated streaming compute: emit a progress tick per step. A real
+    // executor would post payload to a worker/backend awaiting the result.
+    for (let i = 1; i <= SUBMIT_STEPS; i++) {
+      await delay(SUBMIT_STEP_MS, signal);
+      ctx.onProgress?.({ step: 'submit', fraction: i / SUBMIT_STEPS, label: `step ${i}/${SUBMIT_STEPS}` });
+    }
+    return rasterizeZones(payload);
   },
 };
 
 /** One-call installer: register the model, bind its executor, select it. */
 export function installRadialSpread(engine: SimulationEngine): void {
-  registerModel(radialSpreadModel);
+  engine.registerModel(radialSpreadModel);
   engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
   engine.dispatchModel({ type: 'SET_MODEL', payload: radialSpreadModel.id });
 }

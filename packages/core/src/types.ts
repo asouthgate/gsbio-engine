@@ -148,9 +148,11 @@ export interface RunResultEnvelope {
   summary?: unknown;
 }
 
-/** A run can yield 0..N addressable result layers. Each has a stable `id`
- *  (the dev picks it — e.g. the source circle's drawn-feature id) so it can be
- *  individually toggled on/off the map after the run completes. */
+/** A run can yield 0..N addressable result layers. The executor constructs
+ *  one `ResultLayerEntry` per layer inside `submit`. Each has a stable `id`
+ *  (the dev picks it — e.g. the source circle's drawn-feature id) so it can
+ *  be individually toggled on/off the map after the run completes; the
+ *  `envelope` is the `MapLayerEnvelope` the engine renders. */
 export interface ResultLayerEntry {
   id: string;
   envelope: MapLayerEnvelope;
@@ -259,24 +261,26 @@ export type RunProgressStep = 'preprocess' | 'submit' | 'stream';
 
 /* --------------------------- Result visualisation ----------------------- */
 //
-// The renderer understands a closed `MapLayerEnvelope` union; the dev's
-// `submit` returns a `RunResult` that is *either* such an envelope directly
-// or a richer object embedding one. The engine stays opaque on the result
-// shape — only renderers interpret the envelope.
+// Executors don't return arbitrary results — they return `MapLayerEnvelope`s
+// (one per result layer). The envelope is the closed, structured vocabulary
+// the engine renders onto the map; the dev constructs instances inside
+// `Executor.submit`. Internally the engine ferries each envelope to whatever
+// renderer is attached (it's an implementation detail of the engine); the
+// renderer narrows the union on `kind` and adds its native sources/layers.
 
 /**
- * A descriptor telling the renderer how to draw **one** layer onto the map.
+ * The structured return type an `Executor` produces for one result layer.
  *
- * Think of it as a labelled envelope posted to the renderer: inside is
- * either vector data (GeoJSON, carried inline), a URL pointing at a tile
- * service, or a URL pointing at a georeferenced image plus the lng/lat bounds
- * that pin it to the globe. The envelope is the *carrier*, not the pixels —
- * for the `tiles` and `image` kinds the renderer is responsible for fetching
- * the actual bytes from `url`.
+ * An executor's `submit` returns one or more of these (wrapped in
+ * `ResultLayerEntry`, see below) and the engine renders them onto the map.
+ * There are three kinds: a GeoJSON feature collection carried inline, a URL
+ * pointing at a tile service, or a URL pointing at a georeferenced image plus
+ * the lng/lat bounds that pin it to the globe. For the `tiles` and `image`
+ * kinds the envelope is just the *carrier* — it holds a URL; the engine
+ * fetches the bytes and georeferences them on the map.
  *
- * It is a closed union: the renderer narrows via the `kind` field. New kinds
- * are added here as renderers grow; the engine itself passes the envelope
- * through as `unknown` and stays oblivious to its shape.
+ * It is a closed union — the dev picks a `kind` per result layer. New kinds
+ * are added to this union as the engine grows.
  */
 export type MapLayerEnvelope =
   | { kind: 'geojson'; data: GeoJSON.FeatureCollection }

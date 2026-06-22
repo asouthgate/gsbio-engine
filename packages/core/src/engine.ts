@@ -5,6 +5,7 @@ import type {
   DrawMode,
   DrawnFeature,
   MapLayerEnvelope,
+  ModelDef,
   ResultLayerActions,
   RunProgress,
   RunRecord,
@@ -18,7 +19,11 @@ import {
   type LngLat,
 } from './spatial';
 import { ensureDefaultDataSources } from './data/sourceRegistry';
-import { ensureDefaultModels, ensureDefaultExecutors } from './models/registry';
+import {
+  ensureDefaultModels,
+  ensureDefaultExecutors,
+  registerModel as registerModelIntoRegistry,
+} from './models/registry';
 import {
   drawReducer,
   initialDrawState,
@@ -127,6 +132,14 @@ export class SimulationEngine {
   }
 
   /* ----------------------------- Executors ------------------------------ */
+
+  /** Convenience wrapper for `registerModel` from the process-global model
+   *  registry. Models are pure schema shared across the engine (engines are
+   *  normally singletons per page); this method exists so registration reads
+   *  symmetrically next to `registerExecutor` at the call site. */
+  registerModel = (def: ModelDef): void => {
+    registerModelIntoRegistry(def);
+  };
 
   /** Register (or replace) the `Executor` bound to a model id.
    *  Calling `run()` without an executor for the current model id is a

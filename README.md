@@ -82,7 +82,7 @@ Instantiate the engine and install the model.
 ```tsx
 // apps/demo-web/src/main.tsx:13-14
 const engine = createSimulationEngine();
-registerModel(radialSpreadModel);
+engine.registerModel(radialSpreadModel);
 engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
 engine.dispatchModel({ type: 'SET_MODEL', payload: radialSpreadModel.id });
 ```
