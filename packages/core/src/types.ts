@@ -125,9 +125,17 @@ export interface SubmitContext {
 }
 
 /** The dev-defined result shape returned by `submit`. By convention, returns
- *  either a bare `MapLayerEnvelope` (simple models) or `{ layer, summary? }`
- *  where `summary` is opaque domain data for the dev's result panel. Use
- *  `extractLayerEnvelope()` to recover the renderable layer. */
+ *  one of:
+ *  - `{ layers: ResultLayerEntry[], summary? }` — a run with 0..N addressable
+ *    result layers (the general form; each layer is independently togglable on
+ *    the map and in `<ResultsPanel>`).
+ *  - a bare `MapLayerEnvelope` or `{ layer: MapLayerEnvelope, summary? }` —
+ *    a run with exactly one layer (backward-compatible shorthand).
+ *  - a summary-only object — a run with zero layers. Check the resolved
+ *    `RunRecord.layerIds` array; nothing to render when it's empty.
+ *
+ * Use `extractResultLayers()` (or its single-layer convenience
+ * `extractLayerEnvelope()`) to recover the renderable layers. */
 export type RunResult = unknown;
 
 /** Structured form of a `RunResult` — a layer plus optional domain summary. */
@@ -137,18 +145,66 @@ export interface RunResultEnvelope {
   summary?: unknown;
 }
 
-/** Narrow a `RunResult` into the renderable `MapLayerEnvelope`, or `null` if
- *  the result does not contain a recognizable layer (e.g. the dev returned
- *  raw summary data only — visualisation then stays disabled). */
-export function extractLayerEnvelope(result: RunResult): MapLayerEnvelope | null {
-  if (typeof result !== 'object' || result === null) return null;
-  const r = result as Record<string, unknown>;
-  if (typeof r.kind === 'string') return result as MapLayerEnvelope;
-  const layer = r.layer;
-  if (typeof layer === 'object' && layer !== null && typeof (layer as Record<string, unknown>).kind === 'string') {
-    return layer as MapLayerEnvelope;
+/** A run can yield 0..N addressable result layers. Each has a stable `id`
+ *  (the dev picks it — e.g. the source circle's drawn-feature id) so it can be
+ *  individually toggled on/off the map after the run completes. */
+export interface ResultLayerEntry {
+  id: string;
+  envelope: MapLayerEnvelope;
+}
+
+/** Structured form of a `RunResult` with multiple layers. */
+export interface RunResultLayers {
+  layers: ResultLayerEntry[];
+  /** Opaque domain payload the dev's result panel renderer may consume. */
+  summary?: unknown;
+}
+
+/** Detect whether a value looks like a `MapLayerEnvelope` (has a `kind` the
+ *  renderer narrows). Used internally by the extractors. */
+function isMapLayerEnvelope(v: unknown): v is MapLayerEnvelope {
+  return typeof v === 'object' && v !== null && typeof (v as Record<string, unknown>).kind === 'string';
+}
+
+/** Narrow a `RunResult` into a list of addressable result layers. Handles
+ *  the three conventions above: explicit `{ layers }`, the single-layer
+ *  shorthand (bare envelope or `{ layer }`), and the zero-layer case. The
+ *  single-layer shorthand yields one entry whose `id` is `defaultId` (the
+ *  caller passes the run id). */
+export function extractResultLayers(
+  result: RunResult,
+  defaultId = 'default',
+): ResultLayerEntry[] {
+  if (!isMapLayerEnvelope(result)) {
+    if (typeof result === 'object' && result !== null) {
+      const r = result as Record<string, unknown>;
+      const layers = r.layers;
+      if (Array.isArray(layers)) {
+        const out: ResultLayerEntry[] = [];
+        for (const item of layers) {
+          if (typeof item !== 'object' || item === null) continue;
+          const it = item as Record<string, unknown>;
+          if (typeof it.id === 'string' && isMapLayerEnvelope(it.envelope)) {
+            out.push({ id: it.id, envelope: it.envelope });
+          }
+        }
+        return out;
+      }
+      if (isMapLayerEnvelope(r.layer)) {
+        return [{ id: defaultId, envelope: r.layer }];
+      }
+    }
+    return [];
   }
-  return null;
+  return [{ id: defaultId, envelope: result }];
+}
+
+/** Convenience single-layer shortcut: the envelope of the first result layer,
+ *  or `null` if the result has no layers. Equivalent to
+ *  `extractResultLayers(result)[0]?.envelope ?? null`. */
+export function extractLayerEnvelope(result: RunResult): MapLayerEnvelope | null {
+  const layers = extractResultLayers(result);
+  return layers.length > 0 ? layers[0]!.envelope : null;
 }
 
 /**
@@ -229,8 +285,16 @@ export interface RunRecord {
   progress: RunProgress | null;
   startedAt: number;
   finishedAt: number | null;
-  /** Whether the dev's renderer should render the result layer. Toggled by
-   *  `engine.showResult(runId)` / `hideResult(runId)`. */
+  /** Stable ids of every result layer in `result` (0..N). Empty until the run
+   *  succeeds and `extractResultLayers` is applied. */
+  layerIds: string[];
+  /** Subset of `layerIds` currently visible on the map. Toggled per-layer by
+   *  `engine.showResultLayer` / `hideResultLayer`; the whole-run toggle keeps
+   *  this in sync (show adds all, hide empties it). */
+  visibleLayerIds: string[];
+  /** Derived whole-run visibility flag = `visibleLayerIds.length > 0`.
+   *  Backwards-compatible projection of the per-layer state for consumers that
+   *  only need a master toggle. */
   visible: boolean;
 }
 
@@ -243,7 +307,15 @@ export interface RunSummary {
   progress: RunProgress | null;
   startedAt: number;
   finishedAt: number | null;
+  /** Stable ids of every result layer (0..N). Empty until the run succeeds. */
+  layerIds: string[];
+  /** Subset of `layerIds` currently visible on the map. */
+  visibleLayerIds: string[];
+  /** Derived whole-run visibility flag = `visibleLayerIds.length > 0`. */
   visible: boolean;
+  /** True when some but not all layers are visible (UI shows indeterminate
+   *  master state). `false` when there are zero layers or full on/off. */
+  partial: boolean;
 }
 
 /* --------------------------- Renderer port extension -------------------- */
@@ -255,15 +327,19 @@ export interface RunSummary {
 
 /**
  * Imperative result-layer actions a renderer implements. The engine calls
- * these when the user toggles a run's visibility on the map. The renderer
- * narrows the envelope via `kind` and adds/removes its native source+layer.
+ * these when the user toggles a run's layers on the map. A run yields 0..N
+ * addressable layers (see `extractResultLayers`); each is keyed by its
+ * `layerId` so the renderer fan-outs one native source per `(runId, layerId)`
+ * and tears it down cleanly on `removeResultLayer`. The renderer narrows
+ * the envelope via `kind` and adds/removes its native source+layer.
  */
 export interface ResultLayerActions {
-  /** Add (or replace) the result layer for this run. The envelope is the
-   *  `RunRecord.result` produced by `submit`; renderer narrows via `kind`. */
-  addResultLayer: (runId: string, envelope: MapLayerEnvelope) => void;
-  /** Remove the result layer for this run, if any. No-op if absent. */
-  removeResultLayer: (runId: string) => void;
+  /** Add (or replace) a single result layer for this run. Re-entrant: a
+   *  re-add for the same `(runId, layerId)` first removes the old native
+   *  source/layer, then re-adds. */
+  addResultLayer: (runId: string, layerId: string, envelope: MapLayerEnvelope) => void;
+  /** Remove a single result layer for this run, if any. No-op if absent. */
+  removeResultLayer: (runId: string, layerId: string) => void;
 }
 
 /* ----------------------------- Data sources ---------------------------- */

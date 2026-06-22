@@ -53,8 +53,18 @@ export class TerraDraw2DRenderer implements Renderer {
   private draw: TerraDrawLike | null = null;
   private disposed = false;
   private unsubscribeEngine: (() => void) | null = null;
-  /** runId → maplibre layer ids (for teardown on `removeResultLayer`). */
+  /** Composite `${runId}__${layerId}` → maplibre layer ids (for teardown on
+   *  `removeResultLayer(runId, layerId)`). One entry per addressable result
+   *  layer; a run with N image layers owns N disjoint sources+layers. */
   private readonly resultLayers = new Map<string, string[]>();
+
+  /** Stable maplibre source id for a single result layer. */
+  private sourceId(runId: string, layerId: string): string {
+    return `catshark-result-${runId}__${layerId}`;
+  }
+  private layerKey(runId: string, layerId: string): string {
+    return `${runId}__${layerId}`;
+  }
 
   constructor(private readonly options: TerraDraw2DOptions) {}
 
@@ -136,19 +146,23 @@ export class TerraDraw2DRenderer implements Renderer {
           draw.addFeatures([geojson as never]);
         } catch { /* ignore */ }
       },
-      // Result layer port: render a `MapLayerEnvelope` (GeoJSON / tiles / image)
-      // as one or more maplibre layers under a stable per-run source id, so
-      // `removeResultLayer(runId)` can tear them down cleanly. Re-adding to an
-      // existing runId removes first (replace semantics).
-      addResultLayer: (runId, envelope) => {
+      // Result layer port: render a `MapLayerEnvelope` (GeoJSON / tiles /
+      // image) under a stable per-(runId, layerId) source id. A run that
+      // yields N image envelopes hence owns N disjoint sources and layers;
+      // `removeResultLayer(runId, layerId)` tears down exactly one. Re-adding
+      // the same pair removes first (replace semantics).
+      addResultLayer: (runId, layerId, envelope) => {
         const m = this.map;
         if (!m) return;
-        const srcId = `catshark-result-${runId}`;
-        // Re-entrancy-safe teardown: remove old layers/source for this runId
-        // before re-adding (e.g. user toggles show → hide → show).
+        const srcId = this.sourceId(runId, layerId);
+        const key = this.layerKey(runId, layerId);
+        // Re-entrancy-safe teardown for this specific pair only (e.g. user
+        // toggles show → hide → show). Sibling layers under the same run are
+        // untouched.
         try {
-          for (const lid of m.getStyle().layers.map((l) => l.id)) {
-            if (lid.startsWith(srcId)) m.removeLayer(lid);
+          const prev = this.resultLayers.get(key) ?? [];
+          for (const lid of prev) {
+            try { m.removeLayer(lid); } catch { /* not added yet */ }
           }
           m.removeSource(srcId);
         } catch { /* ignore */ }
@@ -218,20 +232,20 @@ export class TerraDraw2DRenderer implements Renderer {
             });
           }
         }
-        this.resultLayers.set(runId, layerIds);
+        this.resultLayers.set(key, layerIds);
       },
-      removeResultLayer: (runId: string) => {
+      removeResultLayer: (runId: string, layerId: string) => {
         const m = this.map;
         if (!m) return;
-        const layerIds = this.resultLayers.get(runId);
+        const key = this.layerKey(runId, layerId);
+        const layerIds = this.resultLayers.get(key);
         if (layerIds) {
           for (const id of layerIds) {
             try { m.removeLayer(id); } catch { /* ignore */ }
           }
         }
-        const srcId = `catshark-result-${runId}`;
-        try { m.removeSource(srcId); } catch { /* ignore */ }
-        this.resultLayers.delete(runId);
+        try { m.removeSource(this.sourceId(runId, layerId)); } catch { /* ignore */ }
+        this.resultLayers.delete(key);
       },
     });
 

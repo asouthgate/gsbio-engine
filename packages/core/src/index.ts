@@ -14,6 +14,7 @@ export * from './models/helloWorld';
 export * from './state/drawSlice';
 export * from './state/modelSlice';
 export * from './state/runSlice';
+export * from './stubExecutor';
 export {
   SimulationEngine,
   createSimulationEngine,

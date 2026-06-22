@@ -4,11 +4,12 @@ import type {
   DrawMapActions,
   DrawMode,
   DrawnFeature,
+  MapLayerEnvelope,
   ResultLayerActions,
   RunProgress,
   RunRecord,
 } from './types';
-import { extractLayerEnvelope } from './types';
+import { extractResultLayers } from './types';
 import {
   circleToPolygon,
   lineStringToGeoJSONFeature,
@@ -209,48 +210,112 @@ export class SimulationEngine {
   };
 
   /* ----------------------------- Result layers -------------------------- */
+  //
+  // A successful run yields 0..N addressable result layers (the list comes
+  // from `extractResultLayers(rec.result)` — the dev's `submit` either returns
+  // `{ layers: ResultLayerEntry[] }` or the single-layer shorthand, both of
+  // which the reducer resolves into `rec.layerIds`). Whole-run
+  // `show/hide/toggleResult` fan out over every layer; the per-layer
+  // `show/hide/toggleResultLayer` toggle one. The renderer port takes a
+  // `(runId, layerId, envelope)` triple so each layer is independently managed
+  // on the map.
 
-  /** Show a successful run's result layer on the map. Idempotent: re-showing
-   *  an already-visible layer is a no-op for the renderer (replace semantics). */
+  /** Resolve a run's result into a `layerId → envelope` map. Empty if the
+   *  run has no layers (summary-only) or hasn't succeeded yet. */
+  private resolveLayers(runId: string): Map<string, MapLayerEnvelope> {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.result) return new Map();
+    return new Map(extractResultLayers(rec.result, runId).map((l) => [l.id, l.envelope]));
+  }
+
+  /** Show every result layer for a successful run on the map. Idempotent;
+   *  layers already visible are not re-added. No-op for a run with zero layers. */
   showResult = (runId: string): void => {
     const rec = this.findRun(runId);
-    if (!rec || rec.status !== 'succeeded' || !rec.result || rec.visible) return;
-    const envelope = extractLayerEnvelope(rec.result);
-    if (!envelope) return; // result is summary-only — nothing to render
+    if (!rec || rec.status !== 'succeeded' || rec.layerIds.length === 0) return;
+    const toAdd = rec.layerIds.filter((id) => !rec.visibleLayerIds.includes(id));
+    if (toAdd.length === 0) return;
+    const layers = this.resolveLayers(runId);
     this.dispatchRun({ type: 'SHOW_RESULT', runId });
-    this.mapActions?.addResultLayer(runId, envelope);
+    for (const layerId of toAdd) {
+      const envelope = layers.get(layerId);
+      if (envelope) this.mapActions?.addResultLayer(runId, layerId, envelope);
+    }
   };
 
-  /** Hide a run's result layer from the map. No-op if already hidden. */
+  /** Hide every result layer for a run from the map. No-op if none are visible. */
   hideResult = (runId: string): void => {
     const rec = this.findRun(runId);
-    if (!rec || !rec.visible) return;
+    if (!rec || rec.visibleLayerIds.length === 0) return;
+    const toRemove = [...rec.visibleLayerIds];
     this.dispatchRun({ type: 'HIDE_RESULT', runId });
-    this.mapActions?.removeResultLayer(runId);
+    for (const layerId of toRemove) this.mapActions?.removeResultLayer(runId, layerId);
   };
 
-  /** Toggle a run's result-layer visibility. Convenience for `<ResultsPanel>`. */
+  /** Toggle a run's whole-run visibility. Convenience for `<ResultsPanel>`
+   *  master toggle: shows all when hidden/partial, hides all when fully on. */
   toggleResult = (runId: string): void => {
     const rec = this.findRun(runId);
-    if (!rec) return;
-    if (rec.visible) this.hideResult(runId);
-    else this.showResult(runId);
+    if (!rec || rec.layerIds.length === 0) return;
+    // Show when not all layers are visible (covers hidden + partial).
+    if (rec.visibleLayerIds.length < rec.layerIds.length) this.showResult(runId);
+    else this.hideResult(runId);
   };
 
-  /** Remove a single run from history (or the current slot). Removes the
-   *  map layer first if it was visible. */
+  /** Show a single result layer for a run. Idempotent. No-op if the layer
+   *  id isn't part of the run, or is already visible. */
+  showResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || !rec.layerIds.includes(layerId) || rec.visibleLayerIds.includes(layerId)) return;
+    const layers = this.resolveLayers(runId);
+    const envelope = layers.get(layerId);
+    if (!envelope) return;
+    this.dispatchRun({ type: 'SHOW_RESULT_LAYER', runId, layerId });
+    this.mapActions?.addResultLayer(runId, layerId, envelope);
+  };
+
+  /** Hide a single result layer for a run. No-op if not currently visible. */
+  hideResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.visibleLayerIds.includes(layerId)) return;
+    this.dispatchRun({ type: 'HIDE_RESULT_LAYER', runId, layerId });
+    this.mapActions?.removeResultLayer(runId, layerId);
+  };
+
+  /** Toggle a single layer's visibility. Convenience for `<ResultsPanel>`
+   *  per-layer checkboxes. */
+  toggleResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.layerIds.includes(layerId)) return;
+    if (rec.visibleLayerIds.includes(layerId)) this.hideResultLayer(runId, layerId);
+    else this.showResultLayer(runId, layerId);
+  };
+
+  /** Remove a single run from history (or the current slot). Removes every
+   *  currently-visible layer from the map first. */
   clearResult = (runId: string): void => {
     const rec = this.findRun(runId);
-    if (rec?.visible) this.mapActions?.removeResultLayer(runId);
+    if (rec) {
+      for (const layerId of rec.visibleLayerIds) {
+        this.mapActions?.removeResultLayer(runId, layerId);
+      }
+    }
     this.dispatchRun({ type: 'CLEAR_RESULT', runId });
   };
 
-  /** Remove all runs from history and current. Removes any visible layers. */
+  /** Remove all runs from history and current. Removes any visible layers
+   *  (per `(runId, layerId)` pair) before clearing state. */
   clearAllResults = (): void => {
     const cur = this._state.run.current;
-    if (cur?.visible) this.mapActions?.removeResultLayer(cur.runId);
+    if (cur) {
+      for (const layerId of cur.visibleLayerIds) {
+        this.mapActions?.removeResultLayer(cur.runId, layerId);
+      }
+    }
     for (const rec of this._state.run.history) {
-      if (rec.visible) this.mapActions?.removeResultLayer(rec.runId);
+      for (const layerId of rec.visibleLayerIds) {
+        this.mapActions?.removeResultLayer(rec.runId, layerId);
+      }
     }
     this.dispatchRun({ type: 'CLEAR_ALL_RESULTS' });
   };

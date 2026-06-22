@@ -125,11 +125,70 @@ describe('runReducer', () => {
 
   it('SHOW_RESULT / HIDE_RESULT toggle visibility on history rows', () => {
     const s1 = runReducer(initialRunState, request);
-    const s2 = runReducer(s1, { type: 'RUN_SUCCEED', result: null, finishedAt: 1 });
+    const s2 = runReducer(s1, {
+      type: 'RUN_SUCCEED',
+      result: { layer: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } } },
+      finishedAt: 1,
+    });
     const s3 = runReducer(s2, { ...request, runId: 'r2', startedAt: 5000 });
     const s4 = runReducer(s3, { type: 'SHOW_RESULT', runId: 'r1' });
     expect(s4.history[0]!.visible).toBe(true);
     expect(s4.current!.visible).toBe(false);
+  });
+
+  it('a run with zero layers stays non-toggleable', () => {
+    const s1 = runReducer(initialRunState, request);
+    const s2 = runReducer(s1, { type: 'RUN_SUCCEED', result: { summary: { only: true } }, finishedAt: 1 });
+    expect(s2.current!.layerIds).toEqual([]);
+    const s3 = runReducer(s2, { type: 'SHOW_RESULT', runId: 'r1' });
+    expect(s3.current!.visible).toBe(false);
+    expect(s3.current!.visibleLayerIds).toEqual([]);
+  });
+
+  it('SHOW/HIDE_RESULT_LAYER toggle individual layer ids', () => {
+    const layers = {
+      layers: [
+        { id: 'c1', envelope: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } } },
+        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:', bounds: [0, 0, 1, 1] } },
+      ],
+    };
+    const s1 = runReducer(initialRunState, request);
+    const s2 = runReducer(s1, { type: 'RUN_SUCCEED', result: layers, finishedAt: 1 });
+    expect(s2.current!.layerIds).toEqual(['c1', 'c2']);
+    expect(s2.current!.visible).toBe(false);
+    const s3 = runReducer(s2, { type: 'SHOW_RESULT_LAYER', runId: 'r1', layerId: 'c1' });
+    expect(s3.current!.visibleLayerIds).toEqual(['c1']);
+    expect(s3.current!.visible).toBe(true);
+    expect(s3.current!.partial).toBeUndefined(); // partial is on the summary, not the record
+    const sum = toSummary(s3.current!);
+    expect(sum.partial).toBe(true);
+    const s4 = runReducer(s3, { type: 'SHOW_RESULT_LAYER', runId: 'r1', layerId: 'c2' });
+    expect(s4.current!.visibleLayerIds).toEqual(['c1', 'c2']);
+    expect(toSummary(s4.current!).partial).toBe(false);
+    const s5 = runReducer(s4, { type: 'HIDE_RESULT_LAYER', runId: 'r1', layerId: 'c1' });
+    expect(s5.current!.visibleLayerIds).toEqual(['c2']);
+    expect(toSummary(s5.current!).partial).toBe(true);
+  });
+
+  it('SHOW_RESULT adds every layer; HIDE_RESULT empties them', () => {
+    const layers = {
+      layers: [
+        { id: 'c1', envelope: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } } },
+        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:', bounds: [0, 0, 1, 1] } },
+      ],
+    };
+    const s1 = runReducer(initialRunState, request);
+    const s2 = runReducer(s1, { type: 'RUN_SUCCEED', result: layers, finishedAt: 1 });
+    const s3 = runReducer(s2, { type: 'SHOW_RESULT', runId: 'r1' });
+    expect(s3.current!.visibleLayerIds).toEqual(['c1', 'c2']);
+    expect(s3.current!.visible).toBe(true);
+    expect(toSummary(s3.current!).partial).toBe(false);
+    // Partial -> show individual -> hide individual lands in partial state
+    const s4 = runReducer(s3, { type: 'HIDE_RESULT_LAYER', runId: 'r1', layerId: 'c1' });
+    expect(toSummary(s4.current!).partial).toBe(true);
+    const s5 = runReducer(s4, { type: 'HIDE_RESULT', runId: 'r1' });
+    expect(s5.current!.visibleLayerIds).toEqual([]);
+    expect(s5.current!.visible).toBe(false);
   });
 
   it('CLEAR_RESULT removes from current', () => {
@@ -186,11 +245,19 @@ describe('allSummaries / toSummary', () => {
   it('toSummary preserves visibility + status', () => {
     const s = runReducer(
       runReducer(initialRunState, request),
-      { type: 'SHOW_RESULT', runId: 'r1' },
+      {
+        type: 'RUN_SUCCEED',
+        result: { layer: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } } },
+        finishedAt: 1,
+      },
     );
-    const sum = toSummary(s.current!);
+    const s2 = runReducer(s, { type: 'SHOW_RESULT', runId: 'r1' });
+    const sum = toSummary(s2.current!);
     expect(sum.runId).toBe('r1');
     expect(sum.visible).toBe(true);
-    expect(sum.status).toBe('idle');
+    expect(sum.status).toBe('succeeded');
+    expect(sum.layerIds).toEqual(['r1']);
+    expect(sum.visibleLayerIds).toEqual(['r1']);
+    expect(sum.partial).toBe(false);
   });
 });

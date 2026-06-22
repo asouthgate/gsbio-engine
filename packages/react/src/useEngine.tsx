@@ -129,6 +129,10 @@ export interface ResultsHook {
   showResult: (runId: string) => void;
   hideResult: (runId: string) => void;
   toggleResult: (runId: string) => void;
+  /** Toggle a single result layer's visibility within a run. */
+  showResultLayer: (runId: string, layerId: string) => void;
+  hideResultLayer: (runId: string, layerId: string) => void;
+  toggleResultLayer: (runId: string, layerId: string) => void;
   clearResult: (runId: string) => void;
   clearAll: () => void;
 }
@@ -137,7 +141,8 @@ export function useResults(): ResultsHook {
   const engine = useEngine();
   const { run } = useEngineState();
   // Cheap projection of the slice into summaries (drops the heavy `result`
-  // payload). Re-runs on every engine state change; memoised on `run`.
+  // payload; keeps only the cheap layer-id strings). Re-runs on every engine
+  // state change; memoised on `run`.
   const summaries = useMemo(() => allSummaries(run), [run]);
   return {
     summaries,
@@ -145,6 +150,9 @@ export function useResults(): ResultsHook {
     showResult: engine.showResult,
     hideResult: engine.hideResult,
     toggleResult: engine.toggleResult,
+    showResultLayer: engine.showResultLayer,
+    hideResultLayer: engine.hideResultLayer,
+    toggleResultLayer: engine.toggleResultLayer,
     clearResult: engine.clearResult,
     clearAll: engine.clearAllResults,
   };

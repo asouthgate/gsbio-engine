@@ -333,4 +333,89 @@ describe('run pipeline', () => {
     expect(engine.getSnapshot().run.current).toBeNull();
     expect(engine.getSnapshot().run.history).toEqual([]);
   });
+
+  it('multi-layer result: per-layer show/hide fan out via the renderer port', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    const remove = actions.removeResultLayer as ReturnType<typeof vi.fn>;
+    const multiLayerResult = {
+      layers: [
+        { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
+        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+      ],
+      summary: { count: 2 },
+    };
+    const provider: ComputeProvider = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return multiLayerResult;
+      },
+    };
+    engine.registerComputeProvider('hello-world', provider);
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+
+    // RunRecord carries both layer ids; none visible yet.
+    const rec = engine.getSnapshot().run.current!;
+    expect(rec.layerIds).toEqual(['c1', 'c2']);
+    expect(rec.visibleLayerIds).toEqual([]);
+    expect(rec.visible).toBe(false);
+
+    // Per-layer show fans out exactly one addResultLayer per layer.
+    engine.showResultLayer(runId, 'c1');
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ kind: 'image', url: 'data:1' }));
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
+    expect(engine.getSnapshot().run.current!.visible).toBe(true);
+
+    // Whole-run show adds the remaining layer only (idempotency).
+    engine.showResult(runId);
+    expect(add).toHaveBeenCalledTimes(2);
+    expect(add).toHaveBeenLastCalledWith(runId, 'c2', expect.objectContaining({ kind: 'image', url: 'data:2' }));
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1', 'c2']);
+
+    // Per-layer hide removes exactly that layer.
+    engine.hideResultLayer(runId, 'c1');
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith(runId, 'c1');
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c2']);
+    // Partial state now.
+    const sum = engine.getSnapshot().run.current!;
+    expect(sum.visibleLayerIds.length).toBe(1);
+    expect(sum.layerIds.length).toBe(2);
+    // Whole-run hide empties the rest.
+    engine.hideResult(runId);
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(remove).toHaveBeenLastCalledWith(runId, 'c2');
+    expect(engine.getSnapshot().run.current!.visible).toBe(false);
+
+    // clearResult tears down everything currently visible.
+    engine.showResult(runId);
+    engine.clearResult(runId);
+    expect(remove).toHaveBeenCalledTimes(4); // 2 from hide above + 2 from clear
+    expect(engine.getSnapshot().run.current).toBeNull();
+  });
+
+  it('showResult is a no-op on a run with zero result layers', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    const provider: ComputeProvider = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return { summary: { only: true } }; // no layers
+      },
+    };
+    engine.registerComputeProvider('hello-world', provider);
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+    engine.showResult(runId);
+    engine.showResultLayer(runId, 'whatever');
+    expect(add).not.toHaveBeenCalled();
+    expect(engine.getSnapshot().run.current!.visible).toBe(false);
+    expect(engine.getSnapshot().run.current!.layerIds).toEqual([]);
+  });
 });

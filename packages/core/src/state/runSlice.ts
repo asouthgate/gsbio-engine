@@ -1,10 +1,11 @@
-import type {
-  ModelParams,
-  RunProgress,
-  RunRecord,
-  RunResult,
-  RunStatus,
-  RunSummary,
+import {
+  extractResultLayers,
+  type ModelParams,
+  type RunProgress,
+  type RunRecord,
+  type RunResult,
+  type RunStatus,
+  type RunSummary,
 } from '../types';
 
 /**
@@ -38,6 +39,8 @@ export type RunAction =
   | { type: 'RUN_CANCEL'; finishedAt: number }
   | { type: 'SHOW_RESULT'; runId: string }
   | { type: 'HIDE_RESULT'; runId: string }
+  | { type: 'SHOW_RESULT_LAYER'; runId: string; layerId: string }
+  | { type: 'HIDE_RESULT_LAYER'; runId: string; layerId: string }
   | { type: 'CLEAR_RESULT'; runId: string }
   | { type: 'CLEAR_ALL_RESULTS' };
 
@@ -57,6 +60,8 @@ function emptyRecord(
     progress: null,
     startedAt,
     finishedAt: null,
+    layerIds: [],
+    visibleLayerIds: [],
     visible: false,
   };
 }
@@ -65,9 +70,13 @@ function setStatus(rec: RunRecord, status: RunStatus): RunRecord {
   return { ...rec, status };
 }
 
-/** Mark a record as visible (`SHOW_RESULT`) or hidden (`HIDE_RESULT`). */
-function withVisibility(rec: RunRecord, visible: boolean): RunRecord {
-  return { ...rec, visible };
+/** Re-derive the whole-run `visible` flag from per-layer visibility. Covers
+ *  every visibility mutation site so the boolean never drifts. */
+function withLayerVisibility(
+  rec: RunRecord,
+  visibleLayerIds: string[],
+): RunRecord {
+  return { ...rec, visibleLayerIds, visible: visibleLayerIds.length > 0 };
 }
 
 /**
@@ -90,20 +99,51 @@ function pushCurrentToHistory(state: RunState): RunState {
   return { ...state, current: null };
 }
 
-/** Apply a visibility toggle to either current or any history row by id. */
-function applyVisibility(
+/** Apply a whole-run visibility toggle (show adds every layer, hide empties)
+ *  to either current or any history row by id. Leaves `layerIds` untouched. */
+function applyRunVisibility(
   state: RunState,
   runId: string,
   visible: boolean,
 ): RunState {
+  const patch = (rec: RunRecord): RunRecord => {
+    const next =
+      visible && rec.layerIds.length > 0
+        ? [...rec.layerIds]
+        : [] as string[];
+    return withLayerVisibility(rec, next);
+  };
   if (state.current?.runId === runId) {
-    return { ...state, current: withVisibility(state.current, visible) };
+    return { ...state, current: patch(state.current) };
   }
   return {
     ...state,
-    history: state.history.map((r) =>
-      r.runId === runId ? withVisibility(r, visible) : r,
-    ),
+    history: state.history.map((r) => (r.runId === runId ? patch(r) : r)),
+  };
+}
+
+/** Toggle a single layer's visibility within a record: add to (show) or
+ *  remove from (hide) `visibleLayerIds`. Idempotent. No-op if the layer id
+ *  isn't in the record's `layerIds`. */
+function applyLayerVisibility(
+  state: RunState,
+  runId: string,
+  layerId: string,
+  visible: boolean,
+): RunState {
+  const patch = (rec: RunRecord): RunRecord => {
+    if (!rec.layerIds.includes(layerId)) return rec;
+    const set = new Set(rec.visibleLayerIds);
+    if (visible) set.add(layerId);
+    else set.delete(layerId);
+    return withLayerVisibility(rec, [...set]);
+  };
+  if (state.current?.runId === runId) {
+    return { ...state, current: patch(state.current) };
+  }
+  return {
+    ...state,
+    history: state.history.map((r) => (r.runId === runId ? patch(r) : r)),
   };
 }
 
@@ -148,8 +188,12 @@ export function runReducer(state: RunState, action: RunAction): RunState {
         },
       };
     }
-    case 'RUN_SUCCEED':
+    case 'RUN_SUCCEED': {
       if (!state.current) return state;
+      // Resolve the dev's result into a stable list of addressable layer ids.
+      // The default per-layer id is the run id (single-layer shorthand case).
+      const layers: { id: string }[] = extractResultLayers(action.result, state.current.runId);
+      const layerIds = layers.map((l) => l.id);
       return {
         ...state,
         current: {
@@ -157,8 +201,12 @@ export function runReducer(state: RunState, action: RunAction): RunState {
           status: 'succeeded',
           result: action.result,
           finishedAt: action.finishedAt,
+          layerIds,
+          visibleLayerIds: [],
+          visible: false,
         },
       };
+    }
     case 'RUN_FAIL':
       if (!state.current) return state;
       return {
@@ -181,9 +229,13 @@ export function runReducer(state: RunState, action: RunAction): RunState {
         },
       };
     case 'SHOW_RESULT':
-      return applyVisibility(state, action.runId, true);
+      return applyRunVisibility(state, action.runId, true);
     case 'HIDE_RESULT':
-      return applyVisibility(state, action.runId, false);
+      return applyRunVisibility(state, action.runId, false);
+    case 'SHOW_RESULT_LAYER':
+      return applyLayerVisibility(state, action.runId, action.layerId, true);
+    case 'HIDE_RESULT_LAYER':
+      return applyLayerVisibility(state, action.runId, action.layerId, false);
     case 'CLEAR_RESULT': {
       if (state.current?.runId === action.runId) {
         return { ...state, current: null };
@@ -200,8 +252,14 @@ export function runReducer(state: RunState, action: RunAction): RunState {
   }
 }
 
-/** Project a `RunRecord` into a `RunSummary` (drops the heavy `result`). */
+/** Project a `RunRecord` into a `RunSummary` (drops the heavy `result`
+ *  payload; keeps only the cheap layer-id strings). */
 export function toSummary(rec: RunRecord): RunSummary {
+  const visible = rec.visibleLayerIds.length > 0;
+  const partial =
+    rec.layerIds.length > 0 &&
+    rec.visibleLayerIds.length > 0 &&
+    rec.visibleLayerIds.length < rec.layerIds.length;
   return {
     runId: rec.runId,
     modelId: rec.modelId,
@@ -210,7 +268,10 @@ export function toSummary(rec: RunRecord): RunSummary {
     progress: rec.progress,
     startedAt: rec.startedAt,
     finishedAt: rec.finishedAt,
-    visible: rec.visible,
+    layerIds: rec.layerIds,
+    visibleLayerIds: rec.visibleLayerIds,
+    visible,
+    partial,
   };
 }
 
