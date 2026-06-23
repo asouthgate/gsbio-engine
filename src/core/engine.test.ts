@@ -7,14 +7,20 @@ import {
   type MapActions,
 } from './index';
 
+/** 
+ * A helper to create a DrawnFeature with some default values and a valid GeoJSON geometry. 
+ * The `over` argument can override any of the default properties.
+ * 
+ * @param id - A unique identifier for the feature.
+ * @param kind - The geometry kind of the feature ('point', 'linestring', 'polygon', or 'circle').
+ * @param over - An optional object to override default properties of the feature.
+ * @returns A DrawnFeature object with the specified properties and a valid GeoJSON geometry.
+ */
 function feature(
   id: string,
   kind: DrawnFeature['geometryKind'],
   over: Partial<DrawnFeature> = {},
 ): DrawnFeature {
-  // GeoJSON features carry TerraDraw's `id` + `properties.mode` — the engine
-  // helpers preserve these when replacing geometry so TerraDraw's
-  // `addFeatures` accepts the new GeoJSON instead of silently rejecting.
   return {
     id,
     geometryKind: kind,
@@ -39,9 +45,16 @@ function feature(
   } as DrawnFeature;
 }
 
+/** 
+ * A helper to create a simulation engine with an initial feature.
+ * 
+ * @param initialFeature - The feature to add to the engine.
+ * @returns An object containing the engine instance and map actions.
+ */
 function engineWith(initialFeature: DrawnFeature) {
   const engine = createSimulationEngine();
   engine.dispatchDraw({ type: 'ADD_FEATURE', payload: initialFeature });
+  // Mock actions for the engine to interact with the map.
   const actions = {
     removeFeatureFromMap: vi.fn(),
     setFeatureVisibility: vi.fn(),
@@ -53,6 +66,7 @@ function engineWith(initialFeature: DrawnFeature) {
   return { engine, actions };
 }
 
+// A sample coordinate for testing point updates.
 const PERTH: LngLat = { lng: 115.86, lat: -31.95 };
 
 describe('updatePointPosition', () => {
@@ -150,8 +164,15 @@ describe('updatePolygonRing', () => {
   });
 });
 
-/* ----------------------------- run pipeline ----------------------------- */
 
+/**
+ * A utility function that returns a promise that resolves after a specified delay.
+ * If an AbortSignal is provided and is triggered, the promise will reject with an AbortError.
+ *
+ * @param ms - The number of milliseconds to delay.
+ * @param signal - An optional AbortSignal to cancel the delay.
+ * @returns A promise that resolves after the specified delay or rejects if aborted.
+ */
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(resolve, ms);
@@ -166,7 +187,17 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** Build a fake `Executor` with cancelable delays and progress. */
+
+/**
+ * A utility function that creates a mock executor with configurable delays and progress.
+ * 
+ * This is specifically for testing the executor behavior in the simulation engine, 
+ * allowing you to simulate different scenarios such as successful execution, 
+ * progress updates, and failures.
+ *
+ * @param opts - Configuration options for the mock executor.
+ * @returns An object containing the mock executor and a record of its calls.
+ */
 function makeProvider(opts?: {
   preprocessMs?: number;
   submitMs?: number;
@@ -212,8 +243,23 @@ function makeProvider(opts?: {
   return { provider, calls };
 }
 
+
+/**
+ * A helper function to create a simulation engine with mock map actions for testing run behavior.
+ * 
+ * This function initializes a new simulation engine and sets up mock implementations for the map actions,
+ * allowing testing of the engine's run pipeline without needing a real map implementation.
+ * 
+ * @returns An object containing the simulation engine instance and the mock map actions.
+ * 
+ */
 function engineWithRun(): { engine: ReturnType<typeof createSimulationEngine>; actions: MapActions } {
   const engine = createSimulationEngine();
+  // This engine has no features drawn,
+  // it is only used via the executor's
+  // run pipeline for testing the run lifecycle.
+  // Mock out some actions because they may still be tested
+  // for the showResult / hideResult / clearResult methods.
   const actions: MapActions = {
     removeFeatureFromMap: vi.fn(),
     setFeatureVisibility: vi.fn(),
@@ -226,7 +272,7 @@ function engineWithRun(): { engine: ReturnType<typeof createSimulationEngine>; a
 }
 
 describe('run pipeline', () => {
-  it('happy path: idle → preprocessing → submitting → running → succeeded', async () => {
+  it('happy path: idle -> preprocessing -> submitting -> running -> succeeded', async () => {
     const { engine } = engineWithRun();
     const { provider, calls } = makeProvider({
       preprocessMs: 5,
@@ -251,7 +297,6 @@ describe('run pipeline', () => {
     const { provider, calls } = makeProvider({ submitMs: 500 });
     engine.registerExecutor('hello-world', provider);
     const p = engine.run();
-    // let it start submitting
     await new Promise((r) => setTimeout(r, 30));
     engine.cancelRun();
     await p;
@@ -304,7 +349,6 @@ describe('run pipeline', () => {
     engine.showResult(runId);
     expect(actions.addResultLayer).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current!.visible).toBe(true);
-    // Idempotent: hidden state can be re-toggled.
     engine.hideResult(runId);
     expect(actions.removeResultLayer).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current!.visible).toBe(false);

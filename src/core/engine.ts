@@ -58,29 +58,27 @@ export interface EngineState {
 export type EngineListener = () => void;
 
 /**
- * Headless simulation engine — the single source of truth for the data model
- * and runtime state. Owns the draw state tree, the model run state tree, the
+ * Headless simulation engine: Owns the draw state tree, the model run state tree, the
  * run pipeline state, and the connections to whatever renderer is currently
- * attached (via `MapActions`) and which executors are registered for
- * each model. No React / maplibre / network code lives here.
+ * attached (via `MapActions`) and which executors are registered for each models.
+ * 
+ * The engine is normally a singleton per page, but can be instantiated multiple
+ * times for testing or multi-map scenarios.
  */
 export class SimulationEngine {
   private _state: EngineState;
   private readonly _listeners = new Set<EngineListener>();
-  /** Combined draw + result-layer port registered by the renderer. */
+  // Map is basically a map of callbacks to the renderer, which is set by the renderer when it mounts.
+  // The engine uses these callbacks to update the map state.
   mapActions: MapActions | null = null;
   /** Executors keyed by `ModelDef.id`. */
   private readonly _executors = new Map<string, Executor>();
-  /** Active run's abort controller. `null` when no run is in flight. */
+  // Active run's abort controller. Used to cancel a run. Null if no run.
   private _abort: AbortController | null = null;
-  /** Active run's promise. Used to serialise `run()` across overlapping calls. */
   private _currentRun: Promise<void> | null = null;
-  /** When `true`, the engine auto-shows every result layer of a freshly
-   *  succeeded run (so the raster appears on the map immediately). Off by
-   *  default to keep unit-test assertions about explicit `showResult`
-   *  counts stable; demo apps flip it on for UX. */
   autoShowResults = false;
-  /** Stable id generator (uses `crypto.randomUUID()` when available). */
+  // ID generator; uses crypto.randomUUID() if available
+  // otherwise falls back to a timestamp + random string.
   private _nextRunId = (): string =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
