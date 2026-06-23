@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "build:wasm": "asc src/wasm/costmap.ts -o src/wasm/costmap.wasm --optimize --exportRuntime"
+    "build:wasm": "asc src/wasm/spread.ts -o src/wasm/spread.wasm --optimize --exportRuntime"
   },
   "dependencies": {
     "@gsbio/client": "workspace:*",

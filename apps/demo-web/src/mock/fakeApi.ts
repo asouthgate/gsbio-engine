@@ -1,52 +1,46 @@
 /**
  * Mock API server — a Vite dev-server middleware plugin.
  *
- * Provides the network-transport surface that the `corridorConnect`
+ * Provides the network-transport surface that the `radialSpreadApi`
  * executor's `submit` glue talks to — without requiring the dev to run a
  * separate backend process. `pnpm dev` spins it up on the same port as
  * Vite (5180); no orchestrator changes, no new runtime deps.
  *
  * Endpoints:
  *
- *   POST /api/corridors/run
- *     body: { patches: PatchPoint[], params: Record<string, number> }
+ *   POST /api/spread/run
+ *     body: { zones: { id, center:{lng,lat}, radiusMeters }[] }
  *     returns { runId }
- *   GET /api/corridors/run/:id
+ *   GET /api/spread/run/:id
  *     returns { status: 'pending'|'completed'|'cancelled',
  *               progress: 0..1,
- *               result?: CorridorFeature[],
  *               tilesUrl?: string }
- *   POST /api/corridors/run/:id/cancel
+ *   POST /api/spread/run/:id/cancel
  *     best-effort; status becomes 'cancelled'
- *   GET /tiles/corridors/:runId/:z/:x/:y.png
- *     procedural XYZ raster tile (256×256 RGBA PNG, ~80-line inline
- *     encoder + per-tile shading of the run's corridors)
+ *   GET /tiles/spread/:runId/:z/:x/:y.png
+ *     procedural XYZ raster tile (256×256 RGBA PNG) shaded with the same
+ *     distance-decay warm ramp as the WASM archetype
  *
- * The "compute" is deliberately trivial (`buildCorridors` from
- * `../models/corridorConnect/corridors.ts` runs synchronously on POST);
+ * The "compute" is deliberately trivial (the per-tile shader in
+ * `../models/radialSpreadApi/tileShade.ts` runs on demand per tile request);
  * the simulated multi-second latency between progress ticks exercises the
- * poll-and-progress loop without doing meaningful work. Replace this server
- * with a real backend and the executor's contract stays the same.
+ * poll-and-progress loop without doing meaningful work up front. Replace
+ * this server with a real backend and the executor's contract stays the same.
  */
 
 import type { Plugin } from 'vite';
 import { deflateSync } from 'node:zlib';
-import {
-  buildCorridors,
-  pointSegDist,
-  type CorridorFeature,
-  type PatchPoint,
-} from '../models/corridorConnect/corridors';
+import { shadeTileRgba, type CircleSpec } from '../models/radialSpreadApi/tileShade';
 
 interface RunState {
   status: 'pending' | 'completed' | 'cancelled';
   progress: number;
-  result: CorridorFeature[] | null;
   tilesUrl: string | null;
   startedAt: number;
   completedAt: number | null;
   durationMs: number;
-  corridors: CorridorFeature[];
+  circles: CircleSpec[];
+  blocks: number;
 }
 
 const RUN_DURATION_MS = 3000;
@@ -142,86 +136,21 @@ function encodePng(width: number, height: number, rgba: Buffer): Buffer {
   ]);
 }
 
-/* ----------------------- XYZ tile procedural shading --------------------- */
-
-interface TileBounds {
-  wLng: number;
-  eLng: number;
-  nLat: number;
-  sLat: number;
-}
-
-function tileBounds(z: number, x: number, y: number): TileBounds {
-  const n = 2 ** z;
-  const wLng = (x / n) * 360 - 180;
-  const eLng = ((x + 1) / n) * 360 - 180;
-  const nLat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI;
-  const sLat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / n))) * 180) / Math.PI;
-  return { wLng, eLng, nLat, sLat };
-}
-
-const TILE_SIZE = 256;
-const BLOCK = 8; // sample BLOCK×BLOCK blocks of pixels per tile (chunks rendering)
-const STEP = TILE_SIZE / BLOCK;
-const CORRIDOR_THRESHOLD_DEG = 0.01; // ~1km — pixels inside 1km of a corridor → orange
-
-function shadeTile(corridors: CorridorFeature[], z: number, x: number, y: number): Buffer {
-  const { wLng, eLng, nLat, sLat } = tileBounds(z, x, y);
-  const pixels = Buffer.alloc(TILE_SIZE * TILE_SIZE * 4);
-  // Pre-extract corridor segments as flat arrays for cheap iteration.
-  const segs: number[][] = [];
-  for (const f of corridors) {
-    if (f.geometry.type !== 'LineString') continue;
-    const coords = f.geometry.coordinates as number[][];
-    for (let i = 0; i < coords.length - 1; i++) {
-      segs.push([coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1]]);
-    }
-  }
-  for (let by = 0; by < BLOCK; by++) {
-    for (let bx = 0; bx < BLOCK; bx++) {
-      const lon = wLng + ((bx + 0.5) / BLOCK) * (eLng - wLng);
-      const lat = nLat + ((by + 0.5) / BLOCK) * (sLat - nLat);
-      let best = Infinity;
-      for (const s of segs) {
-        const d = pointSegDist(lon, lat, s[0], s[1], s[2], s[3]);
-        if (d < best) best = d;
-      }
-      const inside = best < CORRIDOR_THRESHOLD_DEG;
-      const baseRow = by * STEP;
-      const baseCol = bx * STEP;
-      const r = inside ? 255 : 0;
-      const g = inside ? 136 : 0;
-      const b = inside ? 0 : 0;
-      const a = inside ? 200 : 0;
-      for (let dy = 0; dy < STEP; dy++) {
-        for (let dx = 0; dx < STEP; dx++) {
-          const idx = ((baseRow + dy) * TILE_SIZE + (baseCol + dx)) * 4;
-          pixels[idx + 0] = r;
-          pixels[idx + 1] = g;
-          pixels[idx + 2] = b;
-          pixels[idx + 3] = a;
-        }
-      }
-    }
-  }
-  return encodePng(TILE_SIZE, TILE_SIZE, pixels);
-}
-
 /* ------------------------------- Routing ------------------------------- */
 
 function matchRunRoute(url: string): { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null {
   const u = new URL(url, 'http://localhost');
-  if (u.pathname === '/api/corridors/run') return { kind: 'create' };
-  const poll = u.pathname.match(/^\/api\/corridors\/run\/([^/]+)$/);
+  if (u.pathname === '/api/spread/run') return { kind: 'create' };
+  const poll = u.pathname.match(/^\/api\/spread\/run\/([^/]+)$/);
   if (poll) return { kind: 'poll', id: poll[1] };
-  const cancel = u.pathname.match(/^\/api\/corridors\/run\/([^/]+)\/cancel$/);
+  const cancel = u.pathname.match(/^\/api\/spread\/run\/([^/]+)\/cancel$/);
   if (cancel) return { kind: 'cancel', id: cancel[1] };
   return null;
 }
 
 function matchTileRoute(url: string): { runId: string; z: number; x: number; y: number } | null {
   const u = new URL(url, 'http://localhost');
-  const m = u.pathname.match(/^\/tiles\/corridors\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
+  const m = u.pathname.match(/^\/tiles\/spread\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
   if (!m) return null;
   return { runId: m[1], z: parseInt(m[2], 10), x: parseInt(m[3], 10), y: parseInt(m[4], 10) };
 }
@@ -236,12 +165,13 @@ export function fakeApiServerPlugin(): Plugin {
           const tile = matchTileRoute(url);
           if (tile) {
             const r = runs.get(tile.runId);
-            if (!r || !r.corridors.length) {
+            if (!r || !r.circles.length) {
               res.statusCode = 404;
               res.end();
               return;
             }
-            const png = shadeTile(r.corridors, tile.z, tile.x, tile.y);
+            const rgba = shadeTileRgba(r.circles, tile.z, tile.x, tile.y, r.blocks);
+            const png = encodePng(256, 256, rgba);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'image/png');
             res.end(png);
@@ -255,22 +185,25 @@ export function fakeApiServerPlugin(): Plugin {
                 return;
               }
               const body = await readBody(req);
-              const data = JSON.parse(body || '{}') as { patches?: PatchPoint[] };
-              const patches = (data.patches ?? []).filter(
-                (p): p is PatchPoint => typeof p.lng === 'number' && typeof p.lat === 'number' && typeof p.id === 'string',
+              const data = JSON.parse(body || '{}') as { zones?: Array<{ id: string; center: { lng: number; lat: number }; radiusMeters: number }>; resolution?: number };
+              const zones = (data.zones ?? []).filter(
+                (z): z is CircleSpec =>
+                  typeof z.center?.lng === 'number' &&
+                  typeof z.center?.lat === 'number' &&
+                  typeof z.radiusMeters === 'number',
               );
-              const corridors = buildCorridors(patches);
+              const blocks = typeof data.resolution === 'number' && data.resolution > 0 ? data.resolution : 8;
               const id = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-              const baseUrl = `/tiles/corridors/${id}/{z}/{x}/{y}.png`;
+              const tilesUrl = `/tiles/spread/${id}/{z}/{x}/{y}.png`;
               runs.set(id, {
                 status: 'pending',
                 progress: 0,
-                result: corridors,
-                tilesUrl: baseUrl,
+                tilesUrl,
                 startedAt: Date.now(),
                 completedAt: null,
                 durationMs: RUN_DURATION_MS,
-                corridors,
+                circles: zones,
+                blocks,
               });
               scheduleRun(id);
               json(res, 200, { runId: id });
@@ -301,12 +234,7 @@ export function fakeApiServerPlugin(): Plugin {
               return;
             }
             if (r.status === 'completed') {
-              json(res, 200, {
-                status: 'completed',
-                progress: 1,
-                result: r.result,
-                tilesUrl: r.tilesUrl,
-              });
+              json(res, 200, { status: 'completed', progress: 1, tilesUrl: r.tilesUrl });
             } else if (r.status === 'cancelled') {
               json(res, 200, { status: 'cancelled', progress: r.progress });
             } else {

@@ -1,1 +1,2 @@
-export { radialSpreadModel, radialSpreadExecutor, installRadialSpread } from './model';
+export { radialSpreadModel } from './model';
+export { radialSpreadExecutor, installRadialSpread } from './executor';

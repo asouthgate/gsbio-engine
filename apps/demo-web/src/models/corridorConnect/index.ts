@@ -1,1 +1,0 @@
-export { corridorConnectModel, corridorConnectExecutor, installCorridorConnect } from './model';
