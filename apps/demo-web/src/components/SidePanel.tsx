@@ -115,7 +115,7 @@ export function SidePanel() {
     <>
       <div className="side-panel">
         <div className="side-panel-top-row">
-          <span className="side-panel-title">gsbio Engine</span>
+          <span className="side-panel-title">gsbio engine</span>
           <button className="panel-collapse-btn" onClick={() => setCollapsed(true)} title="Collapse panel">
             ▶
           </button>

@@ -2,7 +2,7 @@
   "name": "gsbio-engine",
   "private": true,
   "version": "0.0.1",
-  "description": "An open-source headless engine for biological spatial modelling on maps (or other manifolds).",
+  "description": "An open-source engine for biological spatial modelling on maps.",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "scripts": {

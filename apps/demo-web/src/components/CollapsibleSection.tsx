@@ -8,7 +8,8 @@ interface CollapsibleSectionProps {
 
 export function CollapsibleSection({ title, icon, open, onToggle, children }: CollapsibleSectionProps) {
   return (
-    <div className="panel-section-block">
+    <div className="panel-section-block" data-open={open}>
+      <span className="panel-section-tick" aria-hidden="true" />
       <button className="panel-section-header" onClick={onToggle} aria-expanded={open}>
         <span className="panel-section-chevron">{open ? '▾' : '▸'}</span>
         {icon != null && <span className="panel-section-icon">{icon}</span>}

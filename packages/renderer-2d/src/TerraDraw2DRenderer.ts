@@ -19,6 +19,94 @@ import {
   type SimulationEngine,
 } from '@gsbio/core';
 
+/** Composite terra-draw mode name for a (drawMode, category) tool. */
+function compositeModeName(drawMode: DrawMode, category: string): string {
+  return `${drawMode}__${category}`;
+}
+
+/** Shallow merge of a base paint with an override (override wins). */
+function mergePaint(base: ShapePaint, override: ShapePaint | undefined): ShapePaint {
+  return override ? { ...base, ...override } : { ...base };
+}
+
+/** Map a `ShapePaint` to terra-draw point-mode `styles` keys. */
+function toPointStyles(p: ShapePaint): Record<string, unknown> {
+  const s: Record<string, unknown> = {};
+  const color = p.pointColor ?? p.fillColor;
+  if (color) s.pointColor = color;
+  if (p.pointRadius != null) s.pointWidth = p.pointRadius;
+  const outline = p.pointOutlineColor ?? p.outlineColor;
+  if (outline) s.pointOutlineColor = outline;
+  return s;
+}
+
+/** Map a `ShapePaint` to terra-draw linestring-mode `styles` keys. */
+function toLineStringStyles(p: ShapePaint): Record<string, unknown> {
+  const s: Record<string, unknown> = {};
+  const color = p.lineColor ?? p.outlineColor;
+  if (color) s.lineStringColor = color;
+  const width = p.lineWidth ?? p.outlineWidth;
+  if (width != null) s.lineStringWidth = width;
+  return s;
+}
+
+/** Map a `ShapePaint` to terra-draw polygon/circle-mode `styles` keys. */
+function toPolygonStyles(p: ShapePaint): Record<string, unknown> {
+  const s: Record<string, unknown> = {};
+  if (p.fillColor) s.fillColor = p.fillColor;
+  if (p.fillOpacity != null) s.fillOpacity = p.fillOpacity;
+  if (p.outlineColor) s.outlineColor = p.outlineColor;
+  if (p.outlineWidth != null) s.outlineWidth = p.outlineWidth;
+  return s;
+}
+
+/**
+ * Renderer-local paint description for a drawn feature. Translate-free of any
+ * maplibre/terra-draw specifics so apps can declare styles without importing
+ * those packages. Rendered as a deep merge over `DEFAULT_FEATURE_STYLES`.
+ */
+export interface ShapePaint {
+  fillColor?: string;
+  fillOpacity?: number;
+  outlineColor?: string;
+  outlineWidth?: number;
+  /** Point fill. Aliases `fillColor` when omitted for points. */
+  pointColor?: string;
+  pointOutlineColor?: string;
+  pointRadius?: number;
+  /** Linestring outline. Aliases `outlineColor` for lines. */
+  lineColor?: string;
+  lineWidth?: number;
+}
+
+/** A tool whose category gets a distinct on-map style. */
+export interface FeatureToolStyle {
+  mode: DrawMode;
+  /** The `category` value the engine stamps onto features drawn with the tool. */
+  category: string;
+  style: ShapePaint;
+}
+
+export interface FeatureStyleConfig {
+  /** Per geometry-kind base styles (deep-merged over renderer defaults). */
+  point?: ShapePaint;
+  linestring?: ShapePaint;
+  polygon?: ShapePaint;
+  circle?: ShapePaint;
+  /** Optional per-category tool styles → composite terra-draw modes. */
+  tools?: FeatureToolStyle[];
+}
+
+/** Paint for result (model-output) layers. App overrides the renderer defaults. */
+export interface ResultPaint {
+  fillColor?: string;
+  fillOpacity?: number;
+  lineColor?: string;
+  lineWidth?: number;
+  circleColor?: string;
+  circleRadius?: number;
+}
+
 export interface TerraDraw2DOptions {
   /** MapLibre style spec (sources + layers). */
   style: maplibregl.StyleSpecification;
@@ -26,7 +114,61 @@ export interface TerraDraw2DOptions {
   center?: [number, number];
   /** Initial zoom level. */
   zoom?: number;
+  /**
+   * Drawn-feature paint config. Deep-merged over `DEFAULT_FEATURE_STYLES`,
+   * the engine-provided base. Apps override per-kind defaults and/or declare
+   * per-category `tools` for distinct on-map styles.
+   */
+  featureStyles?: FeatureStyleConfig;
+  /**
+   * Result (model-output) layer paint. Deep-merged over
+   * `DEFAULT_RESULT_PAINT`.
+   */
+  resultStyles?: ResultPaint;
 }
+
+/**
+ * Base drawn-feature palette — teal, matching the shipped app CSS. Apps
+ * override via `TerraDraw2DOptions.featureStyles`. All paint the engine ships
+ * lives here; `@gsbio/core` stays headless.
+ */
+export const DEFAULT_FEATURE_STYLES: Record<DrawMode, ShapePaint> = {
+  select: {},
+  point: {
+    pointColor: '#2dd4bf',
+    pointOutlineColor: '#0a0e10',
+    pointRadius: 6,
+  },
+  linestring: {
+    lineColor: '#2dd4bf',
+    lineWidth: 2,
+  },
+  polygon: {
+    fillColor: '#2dd4bf',
+    fillOpacity: 0.18,
+    outlineColor: '#5eead4',
+    outlineWidth: 2,
+  },
+  circle: {
+    fillColor: '#2dd4bf',
+    fillOpacity: 0.12,
+    outlineColor: '#5eead4',
+    outlineWidth: 2,
+  },
+};
+
+/**
+ * Base result-layer palette — Okabe-Ito amber `#E69F00`, colourblind-safe and
+ * maximally distinct from the teal drawn-feature palette.
+ */
+export const DEFAULT_RESULT_PAINT: Required<ResultPaint> = {
+  fillColor: '#E69F00',
+  fillOpacity: 0.25,
+  lineColor: '#E69F00',
+  lineWidth: 2,
+  circleColor: '#E69F00',
+  circleRadius: 5,
+};
 
 interface TerraDrawLike {
   start(): void;
@@ -58,6 +200,13 @@ export class TerraDraw2DRenderer implements Renderer {
    *  layer; a run with N image layers owns N disjoint sources+layers. */
   private readonly resultLayers = new Map<string, string[]>();
 
+  /** Resolved per-kind drawn-feature paints (app override merged over base). */
+  private readonly featurePaints: Record<DrawMode, ShapePaint>;
+  /** Composite modes registered for declared `tools`, keyed by mode name. */
+  private readonly compositeModes = new Map<string, { drawMode: DrawMode; category: string; style: ShapePaint }>();
+  /** Resolved result-layer paint (app override merged over base). */
+  private readonly resultPaint: Required<ResultPaint>;
+
   /** Stable maplibre source id for a single result layer. */
   private sourceId(runId: string, layerId: string): string {
     return `gsbio-result-${runId}__${layerId}`;
@@ -66,7 +215,25 @@ export class TerraDraw2DRenderer implements Renderer {
     return `${runId}__${layerId}`;
   }
 
-  constructor(private readonly options: TerraDraw2DOptions) {}
+  constructor(private readonly options: TerraDraw2DOptions) {
+    const fs = options.featureStyles ?? {};
+    this.featurePaints = {
+      select: {},
+      point: mergePaint(DEFAULT_FEATURE_STYLES.point, fs.point),
+      linestring: mergePaint(DEFAULT_FEATURE_STYLES.linestring, fs.linestring),
+      polygon: mergePaint(DEFAULT_FEATURE_STYLES.polygon, fs.polygon),
+      circle: mergePaint(DEFAULT_FEATURE_STYLES.circle, fs.circle),
+    };
+    this.resultPaint = { ...DEFAULT_RESULT_PAINT, ...options.resultStyles };
+    // Composite per-(mode, category) modes for declared tools. Each gets its
+    // own terra-draw mode instance keyed by `${mode}__${category}`; the engine
+    // subscription routes `setMode` here when `pendingCategory` is set.
+    for (const t of fs.tools ?? []) {
+      if (t.mode === 'select') continue;
+      const name = compositeModeName(t.mode, t.category);
+      this.compositeModes.set(name, { drawMode: t.mode, category: t.category, style: t.style });
+    }
+  }
 
   async mount(container: HTMLElement, engineInstance: unknown): Promise<void> {
     const engine = engineInstance as SimulationEngine;
@@ -98,11 +265,33 @@ export class TerraDraw2DRenderer implements Renderer {
     }
 
     const adapter = new TerraDrawMapLibreGLAdapter({ map, coordinatePrecision: 9 });
+    // Base draw modes carry the resolved per-kind styles. Composite
+    // per-category modes (one terra-draw instance each, keyed by
+    // `${mode}__${category}`) carry the per-tool style merged over the base.
+    const makeComposite = (drawMode: DrawMode, name: string): never => {
+      const entry = this.compositeModes.get(name);
+      const paint = mergePaint(this.featurePaints[drawMode], entry?.style);
+      switch (drawMode) {
+        case 'point':
+          return new TerraDrawPointMode({ modeName: name, styles: toPointStyles(paint) }) as never;
+        case 'linestring':
+          return new TerraDrawLineStringMode({ modeName: name, styles: toLineStringStyles(paint) }) as never;
+        case 'polygon':
+          return new TerraDrawPolygonMode({ modeName: name, styles: toPolygonStyles(paint) }) as never;
+        case 'circle':
+          return new TerraDrawCircleMode({ modeName: name, styles: toPolygonStyles(paint) }) as never;
+        default:
+          throw new Error(`Cannot create composite mode for ${drawMode}`);
+      }
+    };
+    const compositeModeInstances = Array.from(this.compositeModes.keys()).map(
+      (name) => makeComposite(this.compositeModes.get(name)!.drawMode, name),
+    );
     const draw = new TerraDraw({
       adapter,
       modes: [
-        new TerraDrawSelectMode({
-          flags: {
+        (() => {
+          const flags: Record<string, unknown> = {
             point: { feature: { draggable: true } },
             linestring: {
               feature: { draggable: true, coordinates: { draggable: true, midpoints: { draggable: true } } },
@@ -114,12 +303,20 @@ export class TerraDraw2DRenderer implements Renderer {
             // via Ctrl+S modifier), but NO coordinate-level dragging — the
             // boundary polygon approximation is fixed.
             circle: { feature: { draggable: true, scaleable: true } },
-          },
-        }) as never,
-        new TerraDrawPointMode() as never,
-        new TerraDrawLineStringMode() as never,
-        new TerraDrawPolygonMode() as never,
-        new TerraDrawCircleMode() as never,
+          };
+          // Composite modes inherit their base draw-mode's select flags so
+          // they are editable on the map (e.g. circle__Spread_zone mirrors
+          // the circle flags).
+          for (const [name, cm] of this.compositeModes) {
+            flags[name] = flags[cm.drawMode];
+          }
+          return new TerraDrawSelectMode({ flags } as never) as never;
+        })(),
+        new TerraDrawPointMode({ styles: toPointStyles(this.featurePaints.point) }) as never,
+        new TerraDrawLineStringMode({ styles: toLineStringStyles(this.featurePaints.linestring) }) as never,
+        new TerraDrawPolygonMode({ styles: toPolygonStyles(this.featurePaints.polygon) }) as never,
+        new TerraDrawCircleMode({ styles: toPolygonStyles(this.featurePaints.circle) }) as never,
+        ...compositeModeInstances,
       ],
     }) as unknown as TerraDrawLike;
 
@@ -167,6 +364,7 @@ export class TerraDraw2DRenderer implements Renderer {
           m.removeSource(srcId);
         } catch { /* ignore */ }
         const layerIds: string[] = [];
+        const rp = this.resultPaint;
         if (envelope.kind === 'geojson') {
           m.addSource(srcId, { type: 'geojson', data: envelope.data as never });
           layerIds.push(`${srcId}-fill`, `${srcId}-line`, `${srcId}-circle`);
@@ -175,21 +373,21 @@ export class TerraDraw2DRenderer implements Renderer {
             type: 'fill',
             source: srcId,
             filter: ['==', ['geometry-type'], 'Polygon'],
-            paint: { 'fill-color': '#ff8800', 'fill-opacity': 0.25 },
+            paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity },
           });
           m.addLayer({
             id: `${srcId}-line`,
             type: 'line',
             source: srcId,
             filter: ['==', ['geometry-type'], 'LineString'],
-            paint: { 'line-color': '#ff8800', 'line-width': 2 },
+            paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth },
           });
           m.addLayer({
             id: `${srcId}-circle`,
             type: 'circle',
             source: srcId,
             filter: ['==', ['geometry-type'], 'Point'],
-            paint: { 'circle-radius': 5, 'circle-color': '#ff8800' },
+            paint: { 'circle-radius': rp.circleRadius, 'circle-color': rp.circleColor },
           });
         } else if (envelope.kind === 'image') {
           m.addSource(srcId, {
@@ -215,20 +413,21 @@ export class TerraDraw2DRenderer implements Renderer {
             m.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId });
           } else {
             const sourceLayer = envelope.sourceLayer;
+            const rp = this.resultPaint;
             layerIds.push(`${srcId}-line`, `${srcId}-fill`);
             m.addLayer({
               id: `${srcId}-line`,
               type: 'line',
               source: srcId,
               'source-layer': sourceLayer,
-              paint: { 'line-color': '#ff8800', 'line-width': 2 },
+              paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth },
             });
             m.addLayer({
               id: `${srcId}-fill`,
               type: 'fill',
               source: srcId,
               'source-layer': sourceLayer,
-              paint: { 'fill-color': '#ff8800', 'fill-opacity': 0.25 },
+              paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity },
             });
           }
         }
@@ -249,17 +448,29 @@ export class TerraDraw2DRenderer implements Renderer {
       },
     });
 
-    // Reflect engine draw-mode changes into TerraDraw.
-    const applyMode = (mode: DrawMode) => {
-      try { draw.setMode(mode); } catch { /* mode may not be ready */ }
+    // Reflect engine draw-mode (+ pending category) changes into TerraDraw.
+    // When a per-category composite mode is registered for the current
+    // (drawMode, pendingCategory) pair we route to it so the tool's own style
+    // paints the in-progress shape; otherwise the base mode is used.
+    const resolveModeName = (mode: DrawMode, category: string): string => {
+      if (mode === 'select') return 'select';
+      const composite = category ? compositeModeName(mode, category) : '';
+      return this.compositeModes.has(composite) ? composite : mode;
+    };
+    const applyMode = (mode: DrawMode, category: string) => {
+      try { draw.setMode(resolveModeName(mode, category)); } catch { /* mode may not be ready */ }
     };
     let lastMode: DrawMode | null = engine.getSnapshot().draw.drawMode;
-    applyMode(lastMode === 'select' ? 'select' : lastMode);
+    let lastCategory: string | null = engine.getSnapshot().draw.pendingCategory ?? null;
+    applyMode(lastMode === 'select' ? 'select' : lastMode, lastCategory ?? '');
     this.unsubscribeEngine = engine.subscribe(() => {
-      const mode = engine.getSnapshot().draw.drawMode;
-      if (mode !== lastMode) {
+      const snap = engine.getSnapshot().draw;
+      const mode = snap.drawMode;
+      const category = snap.pendingCategory ?? '';
+      if (mode !== lastMode || category !== lastCategory) {
         lastMode = mode;
-        applyMode(mode === 'select' ? 'select' : mode);
+        lastCategory = category;
+        applyMode(mode === 'select' ? 'select' : mode, category);
       }
     });
 
