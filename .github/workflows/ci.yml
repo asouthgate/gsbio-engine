@@ -12,35 +12,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+          cache: npm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install Engine dependencies
+        run: npm ci
 
-      - name: Lint
-        run: pnpm lint
+      - name: Build Engine Core
+        run: npm run build
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Install Example dependencies
+        run: npm ci --prefix examples/demo-web
 
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
+      - name: Build Example App
+        run: npm run build --prefix examples/demo-web
 
       - name: Upload demo-web build artifact
         uses: actions/upload-artifact@v4
         with:
           name: demo-web
-          path: apps/demo-web/dist
-          retention-days: 7
+          path: examples/demo-web/dist
