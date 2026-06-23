@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createSimulationEngine } from '@gsbio/core';
-import { AppProvider } from '@gsbio/react';
+import { createSimulationEngine } from '@gsbio/engine';
+import { AppProvider } from '@gsbio/engine';
 import { App } from './components/App';
 import { installRadialSpread } from './models/radialSpread';
 import { installRadialSpreadApi } from './models/radialSpreadApi';

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { RunLogEntry, RunSummary } from '@gsbio/core';
+import type { RunLogEntry, RunSummary } from '@gsbio/engine';
 
 function logTimeOf(ts: number): string {
   const d = new Date(ts);

@@ -15,7 +15,7 @@ import type {
   ResultLayerEntry,
   RunResult,
   SimulationEngine,
-} from '@gsbio/core';
+} from '@gsbio/engine';
 import { circleBounds, selectSpreadZones, type Zone } from '../shared';
 import { radialSpreadModel } from './model';
 import { renderRadialRaster } from './rasterize';

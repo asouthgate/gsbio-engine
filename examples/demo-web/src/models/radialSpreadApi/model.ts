@@ -16,7 +16,7 @@
  * (`selectSpreadZones`) live in `../shared.ts`.
  */
 
-import type { ModelDef } from '@gsbio/core';
+import type { ModelDef } from '@gsbio/engine';
 
 export const radialSpreadApiModel: ModelDef = {
   id: 'radial-spread-api',

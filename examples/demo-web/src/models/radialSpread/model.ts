@@ -14,7 +14,7 @@
  * (`selectSpreadZones`, `circleBounds`) live in `../shared.ts`.
  */
 
-import type { ModelDef } from '@gsbio/core';
+import type { ModelDef } from '@gsbio/engine';
 
 export const radialSpreadModel: ModelDef = {
   id: 'radial-spread',

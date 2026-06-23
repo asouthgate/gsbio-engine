@@ -17,7 +17,7 @@ import type {
   ResultLayerEntry,
   RunResult,
   SimulationEngine,
-} from '@gsbio/core';
+} from '@gsbio/engine';
 import { delay } from '../../shared/delay';
 import { selectSpreadZones, type Zone } from '../shared';
 import { radialSpreadApiModel } from './model';

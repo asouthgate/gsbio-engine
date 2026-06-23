@@ -5,7 +5,7 @@
  * so the only visible difference between the archetypes is the compute path.
  */
 
-import type { DrawnFeature } from '@gsbio/core';
+import type { DrawnFeature } from '@gsbio/engine';
 
 export interface Zone {
   id: string;

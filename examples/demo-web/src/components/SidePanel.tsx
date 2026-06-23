@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useResults } from '@gsbio/react';
-import type { RunLogEntry } from '@gsbio/core';
+import { useResults } from '@gsbio/engine';
+import type { RunLogEntry } from '@gsbio/engine';
 import { CollapsibleSection } from './CollapsibleSection';
-import { FeatureList, ModelForm, RunPanel, ResultsPanel } from '@gsbio/react-ui';
+import { FeatureList, ModelForm, RunPanel, ResultsPanel } from '@gsbio/engine';
 import { RunLogModal } from './RunLogModal';
 
 interface SectionDef {

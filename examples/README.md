@@ -11,4 +11,4 @@ pnpm test         # vitest, via turbo
 pnpm typecheck    # `tsc -b` across the composite package graph
 pnpm lint         # eslint across the workspace
 pnpm build        # build examples via turbo
-```s
+```

@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
-import type { DrawMode } from '@gsbio/core';
-import { MapScene, DrawToolbar, type DrawTool } from '@gsbio/react-ui';
+import type { DrawMode } from '@gsbio/engine';
+import { MapScene, DrawToolbar, type DrawTool } from '@gsbio/engine';
 import {
   createTerraDraw2DRenderer,
   type TerraDraw2DRenderer,
   type ShapePaint,
   type FeatureStyleConfig,
   type ResultPaint,
-} from '@gsbio/renderer-2d';
-import { OSM_RASTER_STYLE } from '@gsbio/client';
+} from '@gsbio/engine';
+import { OSM_RASTER_STYLE } from '@gsbio/engine';
 
 const DEFAULT_CENTER: [number, number] = [-3.6, 50.604];
 const DEFAULT_ZOOM = 13;

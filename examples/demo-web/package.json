@@ -11,11 +11,7 @@
     "build:wasm": "asc src/wasm/spread.ts -o src/wasm/spread.wasm --optimize --exportRuntime"
   },
   "dependencies": {
-    "@gsbio/client": "workspace:*",
-    "@gsbio/core": "workspace:*",
-    "@gsbio/react": "workspace:*",
-    "@gsbio/react-ui": "workspace:*",
-    "@gsbio/renderer-2d": "workspace:*",
+    "@gsbio/engine": "file:../../",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
