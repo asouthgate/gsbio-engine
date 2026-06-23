@@ -26,7 +26,7 @@ Each model's source is split across its folder so the separation is explicit:
 Declare the model id, name, description, and params. `radialSpread` has one range param:
 
 ```ts
-// apps/demo-web/src/models/radialSpread/model.ts
+// examples/demo-web/src/models/radialSpread/model.ts
 export const radialSpreadModel: ModelDef = {
   id: 'radial-spread',
   name: 'Radial Spread',
@@ -47,7 +47,7 @@ An `Executor` has two required methods, `preprocess` and `submit`. `preprocess` 
 `submit` invokes a compiled `.wasm` kernel to fill a distance-shaded raster, then emits one `image` envelope per drawn circle. The raster is a centred distance field, identical for every circle, so the kernel runs once and the resulting data URL is reused — only each circle's geo `bounds` differ.
 
 ```ts
-// apps/demo-web/src/models/radialSpread/executor.ts
+// examples/demo-web/src/models/radialSpread/executor.ts
 export const radialSpreadExecutor: Executor = {
   async preprocess(ctx, signal) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -73,10 +73,10 @@ export const radialSpreadExecutor: Executor = {
 };
 ```
 
-The wasm glue (`apps/demo-web/src/models/radialSpread/rasterize.ts`) instantiates the kernel, reads the `Uint8Array` view back through `memory` + `dataStart()`, and bakes it onto a canvas:
+The wasm glue (`examples/demo-web/src/models/radialSpread/rasterize.ts`) instantiates the kernel, reads the `Uint8Array` view back through `memory` + `dataStart()`, and bakes it onto a canvas:
 
 ```ts
-// apps/demo-web/src/models/radialSpread/rasterize.ts
+// examples/demo-web/src/models/radialSpread/rasterize.ts
 import { setup as wasmSetup, fillRadial as wasmFillRadial,
   dataStart as wasmDataStart, memory as wasmMemory } from '../../wasm/spread.wasm';
 export function renderRadialRaster(n: number): string {
@@ -91,14 +91,14 @@ export function renderRadialRaster(n: number): string {
 }
 ```
 
-The AssemblyScript source for the kernel lives at `apps/demo-web/src/wasm/spread.ts`; regenerate the binary with `pnpm --filter @gsbio/demo-web build:wasm`.
+The AssemblyScript source for the kernel lives at `examples/demo-web/src/wasm/spread.ts`; regenerate the binary with `pnpm --filter @gsbio/demo-web build:wasm`.
 
 #### Archetype B: fetch from a backend API (`radialSpreadApi`)
 
-`submit` POSTs the drawn circles to a backend, polls, then wraps the returned tile-URL template in a `tiles` envelope. The demo includes a Vite middleware plugin (`apps/demo-web/src/mock/fakeApi.ts`) that simulates the API.
+`submit` POSTs the drawn circles to a backend, polls, then wraps the returned tile-URL template in a `tiles` envelope. The demo includes a Vite middleware plugin (`examples/demo-web/src/mock/fakeApi.ts`) that simulates the API.
 
 ```ts
-// apps/demo-web/src/models/radialSpreadApi/executor.ts
+// examples/demo-web/src/models/radialSpreadApi/executor.ts
 async submit(ctx, signal) {
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
   const { zones } = ctx.payload as RadialSpreadApiPayload;
@@ -129,7 +129,7 @@ async submit(ctx, signal) {
 },
 ```
 
-The mock backend shades each XYZ tile on demand via `apps/demo-web/src/models/radialSpreadApi/tileShade.ts`, using the same distance-decay warm ramp as the WASM kernel — so the two archetypes are visually identical and differ only in compute path.
+The mock backend shades each XYZ tile on demand via `examples/demo-web/src/models/radialSpreadApi/tileShade.ts`, using the same distance-decay warm ramp as the WASM kernel — so the two archetypes are visually identical and differ only in compute path.
 
 ### 3. `MapLayerEnvelope`: the structured return type for results
 
@@ -144,7 +144,7 @@ export type MapLayerEnvelope =
 ```
 
 ```ts
-// apps/demo-web/src/models/shared.ts (the bounds helper both archetypes share)
+// examples/demo-web/src/models/shared.ts (the bounds helper both archetypes share)
 export function circleBounds(z: Zone): [number, number, number, number] {
   const dLat = z.radiusMeters / 111_320;
   const dLng = z.radiusMeters / (111_320 * Math.cos((z.center.lat * Math.PI) / 180));
@@ -157,7 +157,7 @@ export function circleBounds(z: Zone): [number, number, number, number] {
 Instantiate the engine, install each model + its executor, then hand the engine to `<AppProvider>`. Models are listed in the Model dropdown for free (`ModelForm` reads `listModels()` from `@gsbio/core`); pick one, draw its expected feature categories, and click **Run model**:
 
 ```tsx
-// apps/demo-web/src/main.tsx
+// examples/demo-web/src/main.tsx
 const engine = createSimulationEngine();
 installRadialSpread(engine);
 installRadialSpreadApi(engine);
@@ -166,7 +166,7 @@ installRadialSpreadApi(engine);
 Each `install*` helper is the same three-line pattern (register model, register executor, optionally select):
 
 ```tsx
-// apps/demo-web/src/models/radialSpread/executor.ts
+// examples/demo-web/src/models/radialSpread/executor.ts
 export function installRadialSpread(engine: SimulationEngine): void {
   engine.registerModel(radialSpreadModel);
   engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
@@ -177,7 +177,7 @@ export function installRadialSpread(engine: SimulationEngine): void {
 `installRadialSpreadApi` skips the `dispatchModel` line so the demo opens with the WASM archetype selected by default; the user switches models via the Model dropdown.
 
 ```tsx
-// apps/demo-web/src/components/MapView.tsx:13-21
+// examples/demo-web/src/components/MapView.tsx:13-21
 const renderer = useMemo<TerraDraw2DRenderer>(
   () => createTerraDraw2DRenderer({
     style: OSM_RASTER_STYLE as never, center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM,

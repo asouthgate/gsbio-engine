@@ -2,7 +2,7 @@
  * Radial Spread (API) — per-tile rasteriser (used by the mock API server).
  *
  * Shades a 256×256 XYZ raster tile by the same distance-shaded warm ramp as
- * the WASM kernel (`apps/demo-web/src/wasm/spread.ts`), so the two
+ * the WASM kernel (`examples/demo-web/src/wasm/spread.ts`), so the two
  * archetypes are visually identical. For each sampled block, find the
  * nearest drawn circle (by great-circle distance in metres); if inside its
  * radius, shade by `t = 1 − dist/radius` (1 at the centre → 0 at the edge),

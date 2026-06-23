@@ -2,7 +2,7 @@
  * Radial Spread — demo model (archetype A: WASM compute).
  *
  * Each drawn `Spread_zone` circle is rasterised by a compiled WebAssembly
- * kernel (`apps/demo-web/src/wasm/spread.ts`) into a distance-shaded warm
+ * kernel (`examples/demo-web/src/wasm/spread.ts`) into a distance-shaded warm
  * image whose intensity falls off from the centre, as a stand-in for radial
  * population spread from a source point. The WASM kernel fills the raster
  * once; the executor emits one `image` envelope per circle, each pinned to

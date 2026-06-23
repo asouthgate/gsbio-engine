@@ -36,7 +36,7 @@ importers:
         specifier: ^8.18.2
         version: 8.61.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.7.3)
 
-  apps/demo-web:
+  examples/demo-web:
     dependencies:
       '@gsbio/client':
         specifier: workspace:*

@@ -6,7 +6,7 @@
  * off from the centre — but the compute is framed as a backend job. The
  * executor POSTs the circles to a mock API, polls for completion, then wraps
  * the returned XYZ tile-URL template in a `tiles` envelope. The mock server
- * (`apps/demo-web/src/mock/fakeApi.ts`) shades each tile on demand with the
+ * (`examples/demo-web/src/mock/fakeApi.ts`) shades each tile on demand with the
  * same warm ramp as the WASM kernel, so the only visible difference between
  * the two archetypes is the compute path (in-browser WASM vs RPC + tiles).
  *

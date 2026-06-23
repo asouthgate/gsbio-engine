@@ -20,7 +20,7 @@ pnpm dev          # start the demo-web Vite dev server
 pnpm test         # vitest, via turbo
 pnpm typecheck    # `tsc -b` across the composite package graph
 pnpm lint         # eslint across the workspace
-pnpm build        # build apps via turbo
+pnpm build        # build examples via turbo
 ```
 
 ## Registering a model

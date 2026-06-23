@@ -1,6 +1,6 @@
 # Architecture
 
-gsbio is a **headless spatial-modelling engine**: the core owns the data model and runtime state; the React package and renderer plugins adapt it to UI; runnable apps live under `apps/`.
+gsbio is a **headless spatial-modelling engine**: the core owns the data model and runtime state; the React package and renderer plugins adapt it to UI; runnable examples live under `examples/`.
 
 ## Why headless?
 
@@ -34,7 +34,7 @@ Storage is decoupled from rendering, but both sides need to speak the same coord
 ## Package map
 
 ```
-apps/
+examples/
   demo-web/      runnable consumer — proves the public API end-to-end
 packages/
   core/          SimulationEngine + state slices + registries + CoordinateService
@@ -76,7 +76,7 @@ If a hook here grows past "map state to React" it's a signal that logic belongs 
 
 Headless **presentational** components that project the engine's slices into the canonical draw → configure → run workflow. Sibling package to `@gsbio/react`; lets the engine ship the workflow scaffolding once instead of having every domain app re-author it.
 
-Six thin components, each a 1:1 projection of an engine slice: `<DrawToolbar>`, `<ModelForm>`, `<RunPanel>`, `<ResultsPanel>`, `<FeatureList>`, `<MapScene>`. Nothing here contains simulation logic, rendering-backend code, or shipped CSS — components emit **stable class names** and consumers vendor (`apps/demo-web` ships the reference stylesheet), override via `className`, or write their own.
+Six thin components, each a 1:1 projection of an engine slice: `<DrawToolbar>`, `<ModelForm>`, `<RunPanel>`, `<ResultsPanel>`, `<FeatureList>`, `<MapScene>`. Nothing here contains simulation logic, rendering-backend code, or shipped CSS — components emit **stable class names** and consumers vendor (`examples/demo-web` ships the reference stylesheet), override via `className`, or write their own.
 
 `<DrawToolbar>` `tools` prop subsets/relabels the closed set of draw modes (`select` / `point` / `linestring` / `polygon` / `circle`). Two tools may share a `mode` with different labels — the label flows through to the feature's `category` and is read-only from the panel. Icons are optional and anything renderable.
 
@@ -100,7 +100,7 @@ Renderers are separate packages so consumers pay for what they use (a 2D-only co
 
 ## `@gsbio/client`
 
-Network and storage providers. The engine owns data-source **registration** (in `@gsbio/core`); `@gsbio/client` owns the **fetching** — tile sources, uploads, model outputs. React components never import from here; apps and bootstrap code wire providers into the engine.
+Network and storage providers. The engine owns data-source **registration** (in `@gsbio/core`); `@gsbio/client` owns the **fetching** — tile sources, uploads, model outputs. React components never import from here; examples and bootstrap code wire providers into the engine.
 
 Today: `OSM_RASTER_STYLE` (a MapLibre raster style spec pointing at OpenStreetMap), and `registerUploadedDataSource` (builds a `DataSourceDef` with `kind: 'upload'`). Coming: a `TileProvider` abstraction, async `UploadProvider` pipelines, and a `ModelOutputProvider`.
 
