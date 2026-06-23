@@ -1,10 +1,10 @@
-import type { Renderer } from '@catshark/core';
+import type { Renderer } from '@gsbio/core';
 
 export type WebGPU3DOptions = Record<string, unknown>;
 
 /**
  * Placeholder 3D renderer. Implements the `Renderer` port so it can be
- * mounted by `@catshark/react`'s `<Canvas>` even before WebGL/WebGPU code is
+ * mounted by `@gsbio/react`'s `<Canvas>` even before WebGL/WebGPU code is
  * written. All methods currently throw — implementations land later.
  */
 export class WebGPU3DRenderer implements Renderer {

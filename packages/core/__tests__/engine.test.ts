@@ -418,4 +418,128 @@ describe('run pipeline', () => {
     expect(engine.getSnapshot().run.current!.visible).toBe(false);
     expect(engine.getSnapshot().run.current!.layerIds).toEqual([]);
   });
+
+  it('autoShowResults renders every layer on the map without a manual showResult', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    engine.autoShowResults = true;
+    const multiLayerResult = {
+      layers: [
+        { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
+        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+      ],
+      summary: { count: 2 },
+    };
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return multiLayerResult;
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    expect(add).toHaveBeenCalledTimes(2);
+    expect(engine.getSnapshot().run.current!.visible).toBe(true);
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1', 'c2']);
+  });
+
+  it('autoShowResults stays a no-op when submit produced zero layers', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    engine.autoShowResults = true;
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return { summary: { only: true } };
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    expect(add).not.toHaveBeenCalled();
+    expect(engine.getSnapshot().run.current!.visible).toBe(false);
+    expect(engine.getSnapshot().run.current!.layerIds).toEqual([]);
+  });
+
+  it('executor onLog entries land in run.log and warnings summary', async () => {
+    const { engine } = engineWithRun();
+    const provider: Executor = {
+      async preprocess(ctx, signal) {
+        await delay(2, signal);
+        ctx.onLog?.('warning', 'No Source points drawn');
+        ctx.onLog?.('info', 'preprocessed');
+        return { payload: null };
+      },
+      async submit(ctx, signal) {
+        ctx.onLog?.('info', 'submit body');
+        void await delay(2, signal);
+        return {
+          layer: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } },
+          summary: { ok: true },
+        };
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    const run = engine.getSnapshot().run.current!;
+    const messages = run.log.map((e) => `[${e.level}] ${e.message}`);
+    // Lifecycle entries were appended by the engine.
+    expect(messages).toContain('[info] Run started · model "hello-world"');
+    expect(messages).toContain('[info] Preprocessing…');
+    expect(messages).toContain('[info] Submitting…');
+    expect(messages).toContain('[info] Completed · 1 layer');
+    // Executor-emitted entries threaded through too.
+    expect(messages).toContain('[warning] No Source points drawn');
+    expect(messages).toContain('[info] preprocessed');
+    expect(messages).toContain('[info] submit body');
+    // Warnings projection only includes warning-level entries.
+    expect(messages.filter((m) => m.startsWith('[warning]'))).toEqual([
+      '[warning] No Source points drawn',
+    ]);
+  });
+
+  it('a failed submit appends an error log entry alongside RUN_FAIL', async () => {
+    const { engine } = engineWithRun();
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(2, signal);
+        throw new Error('backend down');
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    const run = engine.getSnapshot().run.current!;
+    expect(run.status).toBe('failed');
+    expect(run.error).toBe('backend down');
+    expect(run.log.at(-1)).toMatchObject({ level: 'error', message: 'backend down' });
+  });
+
+  it('executor onLog calls from an aborted run do not pollute the next run', async () => {
+    const { engine } = engineWithRun();
+    const providerGood: Executor = {
+      async preprocess(c, s) { c.onLog?.('info', 'started preprocess'); await delay(50, s); return { payload: null }; },
+      async submit(c, s) { c.onLog?.('info', 'submitting'); void await delay(2, s); return { layer: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } }, summary: {} }; },
+    };
+    engine.registerExecutor('hello-world', providerGood);
+    const first = engine.run();
+    await new Promise((r) => setTimeout(r, 5));
+    engine.cancelRun();
+    await first.catch(() => {});
+    const second = engine.run();
+    await second;
+    const cur = engine.getSnapshot().run.current!;
+    expect(cur.status).toBe('succeeded');
+    // The aborted run's onLog call should have fired while it was active, but
+    // any late call landing after abort must not appear in the new run's log.
+    const firstStartedEntry = cur.log.findIndex((e) => e.message === 'Run started · model "hello-world"');
+    // There should be exactly one "Run started" entry in the current run's log
+    // because the aborted run's record was dropped (RUN_REQUEST replaced current).
+    expect(cur.log.filter((e) => e.message === 'Run started · model "hello-world"')).toHaveLength(1);
+    expect(firstStartedEntry).toBeGreaterThanOrEqual(0);
+  });
 });

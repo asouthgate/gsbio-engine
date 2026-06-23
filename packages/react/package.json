@@ -1,7 +1,7 @@
 {
-  "name": "@catshark/react",
+  "name": "@gsbio/react",
   "version": "0.0.1",
-  "description": "React bindings for @catshark/core: hooks (useEngine) and the renderer-agnostic Canvas host.",
+  "description": "React bindings for @gsbio/core: hooks (useEngine) and the renderer-agnostic Canvas host.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,10 +14,10 @@
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@catshark/core": "workspace:*"
+    "@gsbio/core": "workspace:*"
   },
   "dependencies": {
-    "@catshark/core": "workspace:*"
+    "@gsbio/core": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

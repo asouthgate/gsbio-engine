@@ -5,7 +5,7 @@ import { DataSourceProvider } from './providers/DataSourceProvider';
 export interface AppProviderProps {
   children: ReactNode;
   /** Inject a pre-built engine (e.g. for tests). */
-  engine?: import('@catshark/core').SimulationEngine;
+  engine?: import('@gsbio/core').SimulationEngine;
 }
 
 /**

@@ -1,9 +1,9 @@
 /**
- * Catshark Engine — core types.
+ * gsbio Engine — core types.
  *
  * Framework-agnostic. No React, no maplibre, no terra-draw here.
  * The engine defines the shape of models and data sources; adapters
- * (`@catshark/react`, `@catshark/renderer-2d`, `@catshark/client`) bind
+ * (`@gsbio/react`, `@gsbio/renderer-2d`, `@gsbio/client`) bind
  * these to UI/rendering/network.
  */
 
@@ -100,22 +100,44 @@ export type ModelParams = Record<string, number>;
 //
 // Both stages receive an `AbortSignal`; starting a new run cancels the in-flight one.
 
+/** Severity of a `RunLogEntry`. Log entries flow from the engine (lifecycle
+ *  narration) and from executors (via the `onLog` callback on the contexts)
+ *  and surface in `<ResultsPanel>` so the user can audit a run. */
+export type RunLogLevel = 'info' | 'warning' | 'error';
+
+/** A single auditor-style entry on a `RunRecord.log`. Entries are appended
+ *  by the engine at lifecycle transitions and by executors via `ctx.onLog`.
+ *  They never affect the run's outcome — purely for human-readable audit. */
+export interface RunLogEntry {
+  /** Epoch ms when the entry was appended. */
+  ts: number;
+  level: RunLogLevel;
+  message: string;
+}
+
 /** Input to an `Executor.preprocess`. Engine builds this from the
  *  current draw state + the active model's params. */
 export interface PreprocessContext {
   modelId: string;
   params: ModelParams;
   features: ReadonlyArray<DrawnFeature>;
+  /** Append a human-readable entry to the run's audit log. Safe to call from
+   *  the executor even in async paths — the engine ignores entries from an
+   *  aborted/replaced run. Recoverable-but-notable issues (e.g. "no Source
+   *  points drawn") should be `warning`; debug narration `info`. */
+  onLog?: (level: RunLogLevel, message: string) => void;
 }
 
 /** The dev-defined shape returned by `preprocess`. Passed verbatim into the
  *  `submit` call's `payload` field. Opaque to the engine. */
 export type PreprocessedPayload = unknown;
 
-/** Result of the preprocess phase. The engine surfaces `warnings` in the UI. */
+/** Result of the preprocess phase. `preprocess` builds `payload`, which is
+ *  forwarded verbatim to `submit`; any narration is emitted via
+ *  `ctx.onLog(...)` on the supplied `PreprocessContext` (the engine appends
+ *  every entry to the run's log so `<ResultsPanel>` can render it). */
 export interface PreprocessResult {
   payload: PreprocessedPayload;
-  warnings?: string[];
 }
 
 /** Input to an `Executor.submit`. Includes the preprocessed payload and
@@ -125,6 +147,10 @@ export interface SubmitContext {
   params: ModelParams;
   payload: PreprocessedPayload;
   onProgress?: (progress: RunProgress) => void;
+  /** Append a human-readable entry to the run's audit log. Symmetric with
+   *  `PreprocessContext.onLog` — same callback shape, same append path. The
+   *  engine ignores entries from an aborted/replaced run. */
+  onLog?: (level: RunLogLevel, message: string) => void;
 }
 
 /** The dev-defined result shape returned by `submit`. By convention, returns
@@ -225,10 +251,13 @@ export function extractLayerEnvelope(result: RunResult): MapLayerEnvelope | null
  */
 export interface Executor {
   /** Browser-side transformation: simplify, reproject, validate, build the
-   *  network payload. Runs synchronously in the test/build environment. */
+   *  network payload. Runs synchronously in the test/build environment.
+   *  Use `ctx.onLog` to narrate recoverable-but-notable issues to the run's
+   *  audit log (rendered by `<ResultsPanel>`). */
   preprocess(ctx: PreprocessContext, signal: AbortSignal): PreprocessResult | Promise<PreprocessResult>;
   /** Submit the preprocessed payload to the backend / WASM compute / etc.
-   *  May call `ctx.onProgress` to update the UI bar while streaming. */
+   *  May call `ctx.onProgress` to update the UI bar while streaming and
+   *  `ctx.onLog` to append audit-log entries. */
   submit(ctx: SubmitContext, signal: AbortSignal): Promise<RunResult>;
 }
 
@@ -305,6 +334,10 @@ export interface RunRecord {
   progress: RunProgress | null;
   startedAt: number;
   finishedAt: number | null;
+  /** Audit log: lifecycle entries from the engine plus executor-emitted
+   *  entries from `ctx.onLog`. Appended in chronological order; never pruned
+   *  except on `CLEAR_RESULT`. Empty until the run has produced any entry. */
+  log: RunLogEntry[];
   /** Stable ids of every result layer in `result` (0..N). Empty until the run
    *  succeeds and `extractResultLayers` is applied. */
   layerIds: string[];
@@ -327,6 +360,12 @@ export interface RunSummary {
   progress: RunProgress | null;
   startedAt: number;
   finishedAt: number | null;
+  /** Audit log (engine lifecycle entries + executor-emitted `onLog` entries).
+   *  Cheap to copy — only strings + a per-entry timestamp. */
+  log: RunLogEntry[];
+  /** Convenience projection: messages of every `log` entry with level `warning`.
+   *  Lets the UI render a compact amber list without filtering `log` itself. */
+  warnings: string[];
   /** Stable ids of every result layer (0..N). Empty until the run succeeds. */
   layerIds: string[];
   /** Subset of `layerIds` currently visible on the map. */
@@ -378,7 +417,7 @@ export interface DataSourceDef {
 
 /**
  * Port interface that render plugins (renderer-2d, renderer-3d) implement.
- * `@catshark/react`'s `Canvas` hosts the container element, instantiates a
+ * `@gsbio/react`'s `Canvas` hosts the container element, instantiates a
  * renderer, and asks it to mount/unmount against a SimulationEngine.
  */
 export interface Renderer {

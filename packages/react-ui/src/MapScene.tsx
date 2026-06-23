@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { Canvas } from '@catshark/react';
-import type { Renderer } from '@catshark/core';
+import { Canvas } from '@gsbio/react';
+import type { Renderer } from '@gsbio/core';
 
 export interface MapSceneProps {
-  /** Renderer plugin (e.g. from @catshark/renderer-2d). Domain-supplied. */
+  /** Renderer plugin (e.g. from @gsbio/renderer-2d). Domain-supplied. */
   renderer: Renderer;
   /** Class for the renderer host (forwarded to <Canvas>). Default `map-view`. */
   className?: string;

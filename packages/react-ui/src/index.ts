@@ -1,12 +1,12 @@
 /**
- * @catshark/react-ui — headless presentational React components for
- * @catshark/core.
+ * @gsbio/react-ui — headless presentational React components for
+ * @gsbio/core.
  *
  * Each component is a 1:1 projection of an engine slice (draw / model /
  * sources) into the canonical draw → configure → run workflow. The package
  * contains:
- *   - no simulation logic (lives in @catshark/core),
- *   - no rendering-backend knowledge (lives in @catshark/renderer-*),
+ *   - no simulation logic (lives in @gsbio/core),
+ *   - no rendering-backend knowledge (lives in @gsbio/renderer-*),
  *   - no shipped CSS — components emit stable class names; consumers write
  *     or vendor their own stylesheet.
  *

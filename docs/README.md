@@ -1,8 +1,8 @@
-# Catshark Engine docs
+# gsbio Engine docs
 
 An open-source headless engine for biological spatial modelling on maps (or other manifolds).
 
-Catshark separates three concerns so models, data, and rendering stay decoupled:
+gsbio separates three concerns so models, data, and rendering stay decoupled:
 
 - **Drawing layer** — generic geometry tools (point / line / polygon / circle) that produce features. No domain semantics.
 - **Data-source layer** — a registry of data sources. Drawn features are one built-in source; uploads register the same way.
@@ -28,7 +28,7 @@ pnpm build        # build apps via turbo
 A model is a pure schema (`ModelDef`); its computation lives in a separate `Executor`, bound to the model by id at registration time.
 
 ```ts
-import { createSimulationEngine, type ModelDef, type Executor } from '@catshark/core';
+import { createSimulationEngine, type ModelDef, type Executor } from '@gsbio/core';
 
 const myModel: ModelDef = {
   id: 'my-model',

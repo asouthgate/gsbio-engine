@@ -17,7 +17,7 @@ import {
   type LngLat,
   type Renderer,
   type SimulationEngine,
-} from '@catshark/core';
+} from '@gsbio/core';
 
 export interface TerraDraw2DOptions {
   /** MapLibre style spec (sources + layers). */
@@ -42,7 +42,7 @@ interface TerraDrawLike {
 /**
  * 2D renderer plugin backed by MapLibre + TerraDraw.
  *
- * `@catshark/react`'s `Canvas` host instantiates this via the demo app and
+ * `@gsbio/react`'s `Canvas` host instantiates this via the demo app and
  * passes an `engine` (a `SimulationEngine`) to `mount`. The renderer wires
  * its TerraDraw lifecycle against the engine's headless state tree: incoming
  * draw/finish/change events dispatch into the engine; engine draw-mode changes
@@ -60,7 +60,7 @@ export class TerraDraw2DRenderer implements Renderer {
 
   /** Stable maplibre source id for a single result layer. */
   private sourceId(runId: string, layerId: string): string {
-    return `catshark-result-${runId}__${layerId}`;
+    return `gsbio-result-${runId}__${layerId}`;
   }
   private layerKey(runId: string, layerId: string): string {
     return `${runId}__${layerId}`;

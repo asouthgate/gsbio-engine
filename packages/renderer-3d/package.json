@@ -1,7 +1,7 @@
 {
-  "name": "@catshark/renderer-3d",
+  "name": "@gsbio/renderer-3d",
   "version": "0.0.1",
-  "description": "3D (WebGPU/WebGL) renderer for @catshark/core. Stub — not implemented yet.",
+  "description": "3D (WebGPU/WebGL) renderer for @gsbio/core. Stub — not implemented yet.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -12,10 +12,10 @@
     }
   },
   "peerDependencies": {
-    "@catshark/core": "workspace:*"
+    "@gsbio/core": "workspace:*"
   },
   "dependencies": {
-    "@catshark/core": "workspace:*"
+    "@gsbio/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0"

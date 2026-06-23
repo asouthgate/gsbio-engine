@@ -1,5 +1,5 @@
 {
-  "name": "@catshark/demo-web",
+  "name": "@gsbio/demo-web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -7,14 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "build:wasm": "asc src/wasm/costmap.ts -o src/wasm/costmap.wasm --optimize --exportRuntime"
   },
   "dependencies": {
-    "@catshark/client": "workspace:*",
-    "@catshark/core": "workspace:*",
-    "@catshark/react": "workspace:*",
-    "@catshark/react-ui": "workspace:*",
-    "@catshark/renderer-2d": "workspace:*",
+    "@gsbio/client": "workspace:*",
+    "@gsbio/core": "workspace:*",
+    "@gsbio/react": "workspace:*",
+    "@gsbio/react-ui": "workspace:*",
+    "@gsbio/renderer-2d": "workspace:*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
@@ -22,7 +23,10 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "assemblyscript": "^0.28.19",
     "typescript": "~5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0"
   }
 }

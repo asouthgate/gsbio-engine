@@ -1,6 +1,7 @@
 import {
   extractResultLayers,
   type ModelParams,
+  type RunLogEntry,
   type RunProgress,
   type RunRecord,
   type RunResult,
@@ -37,6 +38,7 @@ export type RunAction =
   | { type: 'RUN_SUCCEED'; result: RunResult; finishedAt: number }
   | { type: 'RUN_FAIL'; error: string; finishedAt: number }
   | { type: 'RUN_CANCEL'; finishedAt: number }
+  | { type: 'APPEND_RUN_LOG'; entries: RunLogEntry[] }
   | { type: 'SHOW_RESULT'; runId: string }
   | { type: 'HIDE_RESULT'; runId: string }
   | { type: 'SHOW_RESULT_LAYER'; runId: string; layerId: string }
@@ -60,6 +62,7 @@ function emptyRecord(
     progress: null,
     startedAt,
     finishedAt: null,
+    log: [],
     layerIds: [],
     visibleLayerIds: [],
     visible: false,
@@ -228,6 +231,17 @@ export function runReducer(state: RunState, action: RunAction): RunState {
           finishedAt: action.finishedAt,
         },
       };
+    case 'APPEND_RUN_LOG': {
+      if (!state.current) return state;
+      if (action.entries.length === 0) return state;
+      return {
+        ...state,
+        current: {
+          ...state.current,
+          log: [...state.current.log, ...action.entries],
+        },
+      };
+    }
     case 'SHOW_RESULT':
       return applyRunVisibility(state, action.runId, true);
     case 'HIDE_RESULT':
@@ -268,6 +282,8 @@ export function toSummary(rec: RunRecord): RunSummary {
     progress: rec.progress,
     startedAt: rec.startedAt,
     finishedAt: rec.finishedAt,
+    log: rec.log,
+    warnings: rec.log.filter((e) => e.level === 'warning').map((e) => e.message),
     layerIds: rec.layerIds,
     visibleLayerIds: rec.visibleLayerIds,
     visible,

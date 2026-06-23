@@ -1,5 +1,5 @@
 /**
- * Catshark engine — Coordinate / Projection service.
+ * gsbio engine — Coordinate / Projection service.
  *
  * The engine stores geometry in geographic (lat/lng) coordinates so analysis
  * is independent of any rendering surface. The render side asks the engine's
@@ -231,7 +231,7 @@ export function polygonRingToGeoJSONFeature(ring: LngLat[]): GeoJSON.Feature {
  * CoordinateService wraps a projection function pair (provided by the active
  * renderer / map) so the render side and the analysis side share one source of
  * truth for coordinate translation. The service is intentionally not bound to
- * maplibre — `@catshark/renderer-2d` supplies the projection functions.
+ * maplibre — `@gsbio/renderer-2d` supplies the projection functions.
  */
 export class CoordinateService {
   constructor(

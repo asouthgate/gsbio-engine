@@ -1,9 +1,9 @@
 /**
- * @catshark/core — public, framework-agnostic API.
+ * @gsbio/core — public, framework-agnostic API.
  *
- * Import from `@catshark/core` to create a SimulationEngine, register models
+ * Import from `@gsbio/core` to create a SimulationEngine, register models
  * and data sources, or to consume engine types. The React/MapLibre bindings
- * live in `@catshark/react`, `@catshark/renderer-2d`, and `@catshark/client`.
+ * live in `@gsbio/react`, `@gsbio/renderer-2d`, and `@gsbio/client`.
  */
 
 export * from './types';

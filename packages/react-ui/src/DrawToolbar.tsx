@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
-import { useDraw } from '@catshark/react';
-import type { DrawMode } from '@catshark/core';
+import { useDraw } from '@gsbio/react';
+import type { DrawMode } from '@gsbio/core';
 
 /**
  * A single tool entry in the toolbar. Two tools may share a `mode` (e.g. two

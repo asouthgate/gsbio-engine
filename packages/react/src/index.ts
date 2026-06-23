@@ -1,12 +1,12 @@
 /**
- * @catshark/react — React bindings for @catshark/core.
+ * @gsbio/react — React bindings for @gsbio/core.
  *
  * Export hooks, the `EngineProvider` / `AppProvider`, and the
  * renderer-agnostic `Canvas` host. This package contains no simulation logic
  * and no rendering-backend code — it only maps the engine's state into React.
  */
 
-import type { DrawAction, DrawMode, ModelAction } from '@catshark/core';
+import type { DrawAction, DrawMode, ModelAction } from '@gsbio/core';
 export type { DrawAction, DrawMode, ModelAction };
 
 export { EngineProvider, useEngine, useEngineState, useDraw, useModel, useRun, useResults } from './useEngine';

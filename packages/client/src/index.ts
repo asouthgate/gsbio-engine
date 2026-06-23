@@ -1,19 +1,19 @@
 /**
- * Network/storage providers for the catshark engine.
+ * Network/storage providers for the gsbio engine.
  *
  * Per the headless-engine contract, the engine itself owns data-source
- * *registration* (`@catshark/core`'s `registerDataSource`); this package owns
+ * *registration* (`@gsbio/core`'s `registerDataSource`); this package owns
  * the *fetching* — tile sources, uploaded GeoJSON/CSV, model outputs. Your
  * React components never import from this package directly; the demo app
  * (and other consumers) wire providers here into the engine.
  */
 
-import type { DataSourceDef } from '@catshark/core';
+import type { DataSourceDef } from '@gsbio/core';
 
 /**
  * Bare OSM raster style spec, the previous baked-in tile source. The object
  * is structurally compatible with maplibre-gl's `StyleSpecification`;
- * `@catshark/renderer-2d` consumes it as such.
+ * `@gsbio/renderer-2d` consumes it as such.
  */
 export const OSM_RASTER_STYLE = {
   version: 8,

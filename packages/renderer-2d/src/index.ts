@@ -1,8 +1,8 @@
 /**
- * @catshark/renderer-2d — 2D renderer plugin for @catshark/core.
+ * @gsbio/renderer-2d — 2D renderer plugin for @gsbio/core.
  *
  * Backed by MapLibre + TerraDraw. Consumes engine state via the `Renderer`
- * port defined in `@catshark/core` and is hosted by `@catshark/react`'s
+ * port defined in `@gsbio/core` and is hosted by `@gsbio/react`'s
  * `<Canvas>` component.
  */
 

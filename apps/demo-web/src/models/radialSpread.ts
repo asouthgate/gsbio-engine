@@ -5,7 +5,7 @@ import {
   type ModelDef,
   type ResultLayerEntry,
   type SimulationEngine,
-} from '@catshark/core';
+} from '@gsbio/core';
 
 /**
  * Radial Spread — a trivial biological mock model.

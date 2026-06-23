@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Catshark base",
+  "display": "gsbio base",
   "compilerOptions": {
     "target": "es2023",
     "lib": ["ES2023"],

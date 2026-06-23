@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { Renderer, SimulationEngine } from '@catshark/core';
+import type { Renderer, SimulationEngine } from '@gsbio/core';
 import { useEngine } from './useEngine';
 
 export interface CanvasProps {

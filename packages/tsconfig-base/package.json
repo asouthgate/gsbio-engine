@@ -1,5 +1,5 @@
 {
-  "name": "@catshark/tsconfig-base",
+  "name": "@gsbio/tsconfig-base",
   "version": "0.0.1",
   "private": true,
   "type": "module",

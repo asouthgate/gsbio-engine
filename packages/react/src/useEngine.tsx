@@ -17,7 +17,7 @@ import {
   type ModelAction,
   type RunSummary,
   type SimulationEngine,
-} from '@catshark/core';
+} from '@gsbio/core';
 
 const EngineContext = createContext<SimulationEngine | null>(null);
 

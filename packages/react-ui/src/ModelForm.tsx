@@ -1,5 +1,5 @@
-import { useModel } from '@catshark/react';
-import { getModel, listModels, type ModelParamDef } from '@catshark/core';
+import { useModel } from '@gsbio/react';
+import { getModel, listModels, type ModelParamDef } from '@gsbio/core';
 
 function ParamField({ def, value, onChange }: { def: ModelParamDef; value: number; onChange: (v: number) => void }) {
   if (def.type === 'range') {

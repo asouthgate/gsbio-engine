@@ -1,5 +1,5 @@
 {
-  "name": "@catshark/core",
+  "name": "@gsbio/core",
   "version": "0.0.1",
   "description": "Headless spatial-modelling engine. No React, no maplibre, no network.",
   "type": "module",

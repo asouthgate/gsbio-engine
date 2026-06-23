@@ -6,6 +6,7 @@ import {
   toSummary,
   type RunAction,
   type RunState,
+  type RunLogEntry,
 } from '../src/index';
 
 const request: RunAction = {
@@ -91,6 +92,50 @@ describe('runReducer', () => {
     );
     expect(s.current!.status).toBe('cancelled');
     expect(s.current!.finishedAt).toBe(4000);
+  });
+
+  it('RUN_REQUEST initialises log as an empty array', () => {
+    const s = runReducer(initialRunState, request);
+    expect(s.current!.log).toEqual([]);
+  });
+
+  it('APPEND_RUN_LOG appends entries to current.log', () => {
+    const entries: RunLogEntry[] = [
+      { ts: 1, level: 'info', message: 'Run started · model "x"' },
+      { ts: 2, level: 'warning', message: 'No sources' },
+    ];
+    const s = runReducer(
+      runReducer(initialRunState, request),
+      { type: 'APPEND_RUN_LOG', entries },
+    );
+    expect(s.current!.log).toEqual(entries);
+  });
+
+  it('APPEND_RUN_LOG no-ops when no current run', () => {
+    const prev = initialRunState;
+    const s = runReducer(prev, {
+      type: 'APPEND_RUN_LOG',
+      entries: [{ ts: 1, level: 'info', message: 'late' }],
+    });
+    expect(s).toBe(prev);
+  });
+
+  it('APPEND_RUN_LOG with empty entries leaves state unchanged', () => {
+    const s0 = runReducer(initialRunState, request);
+    const s1 = runReducer(s0, { type: 'APPEND_RUN_LOG', entries: [] });
+    expect(s1).toBe(s0);
+  });
+
+  it('APPEND_RUN_LOG does not reach into history', () => {
+    const s1 = runReducer(initialRunState, request);
+    const s2 = runReducer(s1, { type: 'RUN_SUCCEED', result: null, finishedAt: 1 });
+    const s3 = runReducer(s2, { ...request, runId: 'r2', startedAt: 5 });
+    const s4 = runReducer(s3, {
+      type: 'APPEND_RUN_LOG',
+      entries: [{ ts: 7, level: 'info', message: 'goes to current only' }],
+    });
+    expect(s4.current!.log).toEqual([{ ts: 7, level: 'info', message: 'goes to current only' }]);
+    expect(s4.history[0]!.log).toEqual([]);
   });
 
   it('RUN_REQUEST moves a finished current into history', () => {
@@ -259,5 +304,25 @@ describe('allSummaries / toSummary', () => {
     expect(sum.layerIds).toEqual(['r1']);
     expect(sum.visibleLayerIds).toEqual(['r1']);
     expect(sum.partial).toBe(false);
+  });
+
+  it('toSummary projects log + warnings from current', () => {
+    const s1 = runReducer(initialRunState, request);
+    const s2 = runReducer(s1, {
+      type: 'APPEND_RUN_LOG',
+      entries: [
+        { ts: 1, level: 'info', message: 'Run started' },
+        { ts: 2, level: 'warning', message: 'No Source points drawn' },
+        { ts: 3, level: 'info', message: 'Submitting' },
+        { ts: 4, level: 'error', message: 'boom' },
+        { ts: 5, level: 'warning', message: 'wide gap' },
+      ],
+    });
+    const sum = toSummary(s2.current!);
+    expect(sum.log).toHaveLength(5);
+    expect(sum.log[0]!.level).toBe('info');
+    expect(sum.warnings).toEqual(['No Source points drawn', 'wide gap']);
+    // `result` must not leak into the summary projection.
+    expect('result' in sum).toBe(false);
   });
 });

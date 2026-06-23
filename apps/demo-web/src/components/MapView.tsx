@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { MapScene, DrawToolbar } from '@catshark/react-ui';
+import { MapScene, DrawToolbar } from '@gsbio/react-ui';
 import {
   createTerraDraw2DRenderer,
   type TerraDraw2DRenderer,
-} from '@catshark/renderer-2d';
-import { OSM_RASTER_STYLE } from '@catshark/client';
+} from '@gsbio/renderer-2d';
+import { OSM_RASTER_STYLE } from '@gsbio/client';
 
 const DEFAULT_CENTER: [number, number] = [-3.6, 50.604];
 const DEFAULT_ZOOM = 13;
@@ -26,9 +26,12 @@ export function MapView() {
         tools={[
           { mode: 'point', label: 'Point'},
           { mode: 'linestring', label: 'Line'},
-          { mode: 'circle', label: 'Circle', icon: '⚪' },
-          { mode: 'circle', label: 'Spread_zone', icon: '⭕' }
-        ]} 
+          { mode: 'circle', label: 'Circle', icon: '○' },
+          { mode: 'circle', label: 'Spread_zone', icon: '○' },
+          { mode: 'point', label: 'Source', icon: '꩜' },
+          { mode: 'polygon', label: 'Barrier', icon: '𝍌' },
+          { mode: 'point', label: 'Patch', icon: '▢' },
+        ]}
       />
     </MapScene>
   );

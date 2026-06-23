@@ -896,3 +896,128 @@ select:focus {
   line-height: 1;
   padding: 4px 8px;
 }
+
+/* Warnings block — amber list mirroring the existing `.run-item__error`. */
+.run-item__warnings {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.run-item__warning {
+  font-size: 11px;
+  color: var(--warning);
+  line-height: 1.3;
+  font-family: var(--font-mono);
+}
+
+/* Inline run-log expander: compact, scannable rows inside a results row. */
+.run-item__log-toggle {
+  font-family: var(--font-mono);
+}
+
+.run-item__log {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.run-item__log-entry {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  line-height: 1.3;
+  padding: 2px 0;
+  color: var(--text-dim);
+}
+
+.run-item__log-entry--info     { color: var(--text-dim); }
+.run-item__log-entry--warning  { color: var(--warning); }
+.run-item__log-entry--error    { color: var(--danger); }
+
+.run-item__log-time   { color: var(--text-dim); opacity: 0.7; }
+.run-item__log-message { white-space: pre-wrap; word-break: break-word; }
+
+/* Full-page run-log modal — covers the page so long logs stay readable. */
+.run-log-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.run-log-modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  width: min(820px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.run-log-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.run-log-modal__header h3 {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.run-log-modal__close {
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.run-log-modal__entries {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  overflow-y: auto;
+  flex: 1;
+  font-family: var(--font-mono);
+}
+
+.run-log-modal__entry {
+  display: grid;
+  grid-template-columns: 110px 80px 1fr;
+  gap: 10px;
+  padding: 3px 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  border-left: 3px solid transparent;
+}
+
+.run-log-modal__entry--info    { color: var(--text-secondary); border-left-color: var(--border); }
+.run-log-modal__entry--warning { color: var(--warning);        border-left-color: var(--warning); }
+.run-log-modal__entry--error   { color: var(--danger);         border-left-color: var(--danger); }
+
+.run-log-modal__time     { color: var(--text-dim); font-size: 11px; }
+.run-log-modal__level    { text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; opacity: 0.85; }
+.run-log-modal__message  { white-space: pre-wrap; word-break: break-word; }

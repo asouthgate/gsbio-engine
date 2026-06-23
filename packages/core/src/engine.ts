@@ -7,6 +7,7 @@ import type {
   MapLayerEnvelope,
   ModelDef,
   ResultLayerActions,
+  RunLogLevel,
   RunProgress,
   RunRecord,
 } from './types';
@@ -74,6 +75,11 @@ export class SimulationEngine {
   private _abort: AbortController | null = null;
   /** Active run's promise. Used to serialise `run()` across overlapping calls. */
   private _currentRun: Promise<void> | null = null;
+  /** When `true`, the engine auto-shows every result layer of a freshly
+   *  succeeded run (so the raster appears on the map immediately). Off by
+   *  default to keep unit-test assertions about explicit `showResult`
+   *  counts stable; demo apps flip it on for UX. */
+  autoShowResults = false;
   /** Stable id generator (uses `crypto.randomUUID()` when available). */
   private _nextRunId = (): string =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -178,6 +184,21 @@ export class SimulationEngine {
 
     const exec = async (): Promise<void> => {
       this.dispatchRun({ type: 'RUN_REQUEST', runId, modelId, params, startedAt });
+      // Unconditional append — the reducer no-ops until `current` exists,
+      // which RUN_REQUEST installs synchronously above. Safe to call after
+      // final transitions (cancel/fail) even when the AbortSignal is
+      // already aborted; the staleness check below is what protects the
+      // *active* run from a stale predecessor's stray lines.
+      const rawAppend = (level: RunLogLevel, message: string): void => {
+        this.dispatchRun({ type: 'APPEND_RUN_LOG', entries: [{ ts: Date.now(), level, message }] });
+      };
+      // Gated variant handed to executors as `ctx.onLog`: drops entries
+      // emitted by an aborted-or-replaced run so they can't pollute the
+      // now-current run. Same staleness guard as `onProgress`.
+      const onLog = (level: RunLogLevel, message: string): void => {
+        if (this._abort === ac && !ac.signal.aborted) rawAppend(level, message);
+      };
+      rawAppend('info', `Run started · model "${modelId}"`);
       try {
         const executor = this._executors.get(modelId);
         if (!executor) {
@@ -185,25 +206,40 @@ export class SimulationEngine {
         }
         const features: ReadonlyArray<DrawnFeature> = this._state.draw.features;
         this.dispatchRun({ type: 'PREPROCESS_START' });
-        const { payload } = await executor.preprocess({ modelId, params, features }, ac.signal);
+        rawAppend('info', 'Preprocessing…');
+        const { payload } = await executor.preprocess(
+          { modelId, params, features, onLog },
+          ac.signal,
+        );
         if (ac.signal.aborted) return;
         this.dispatchRun({ type: 'SUBMIT_START' });
+        rawAppend('info', 'Submitting…');
         const onProgress = (p: RunProgress): void => {
           if (!ac.signal.aborted && this._abort === ac) {
             this.dispatchRun({ type: 'PROGRESS', payload: p });
           }
         };
-        const result = await executor.submit({ modelId, params, payload, onProgress }, ac.signal);
+        const result = await executor.submit(
+          { modelId, params, payload, onProgress, onLog },
+          ac.signal,
+        );
         if (this._abort === ac && !ac.signal.aborted) {
           this.dispatchRun({ type: 'RUN_SUCCEED', result, finishedAt: Date.now() });
+          const layerCount = extractResultLayers(result, runId).length;
+          rawAppend('info', `Completed · ${layerCount} layer${layerCount === 1 ? '' : 's'}`);
+          if (this.autoShowResults && layerCount > 0) {
+            this.showResult(runId);
+          }
         }
       } catch (err) {
         if (this._abort !== ac) return; // a newer run replaced us; don't touch state
         if (ac.signal.aborted) {
           this.dispatchRun({ type: 'RUN_CANCEL', finishedAt: Date.now() });
+          rawAppend('info', 'Cancelled');
         } else {
           const message = err instanceof Error ? err.message : String(err);
           this.dispatchRun({ type: 'RUN_FAIL', error: message, finishedAt: Date.now() });
+          rawAppend('error', message);
         }
       } finally {
         if (this._abort === ac) {

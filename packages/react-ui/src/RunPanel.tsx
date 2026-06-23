@@ -1,5 +1,5 @@
-import { useRun } from '@catshark/react';
-import type { RunStatus } from '@catshark/core';
+import { useRun } from '@gsbio/react';
+import type { RunStatus } from '@gsbio/core';
 
 /** Statuses that count as "running" — the run button shows the sliding-hash
  *  overlay and disables interaction while in any of these states. */

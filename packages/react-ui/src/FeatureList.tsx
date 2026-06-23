@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useDraw, useDataSources } from '@catshark/react';
-import type { CircleGeometry, DataSourceDef, DrawnFeature, LngLat } from '@catshark/core';
+import { useDraw, useDataSources } from '@gsbio/react';
+import type { CircleGeometry, DataSourceDef, DrawnFeature, LngLat } from '@gsbio/core';
 
 /* ----------------------------------------------------------------------- */
 /* Geometry-coordinate helpers (pure, view-only extractions from GeoJSON) */
