@@ -5,10 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "build:wasm": "asc src/wasm/spread.ts -o src/wasm/spread.wasm --optimize --exportRuntime"
+    "build": "vite build && asc src/wasm/spread.ts -o src/wasm/spread.wasm --optimize --exportRuntime",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@gsbio/engine": "file:../../",

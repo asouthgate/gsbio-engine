@@ -16,7 +16,12 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
-    "test": "vitest"
+    "lint": "eslint src/",
+    "test": "vitest run",
+    "build:example": "npm run build --prefix examples/demo-web",
+    "dev:example": "npm run dev --prefix examples/demo-web",
+    "build:all": "npm run build && npm run build:example",
+    "test:all": "npm run test && npm run build:example"
   },
   "dependencies": {
     "maplibre-gl": "^4.0.0",
