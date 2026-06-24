@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  allSummaries,
   createSimulationEngine,
   type CircleGeometry,
   type DrawAction,
@@ -143,7 +142,7 @@ export function useResults(): ResultsHook {
   // Cheap projection of the slice into summaries (drops the heavy `result`
   // payload; keeps only the cheap layer-id strings). Re-runs on every engine
   // state change; memoised on `run`.
-  const summaries = useMemo(() => allSummaries(run), [run]);
+  const summaries = useMemo(() => engine.runs.allSummaries(run), [run]);
   return {
     summaries,
     current: summaries.length > 0 ? summaries[0]! : null,

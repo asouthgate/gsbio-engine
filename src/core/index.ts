@@ -9,7 +9,6 @@
 export * from './types';
 export * from './spatial';
 export * from './models/helloWorld';
-export * from './state/runSlice';
 export * from './mapStyles';
 export * from './stubExecutor';
 

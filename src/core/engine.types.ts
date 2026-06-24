@@ -6,7 +6,7 @@ import type {
 
 import { type DrawState } from './engine.drawing';
 import { type ModelState } from './engine.modelRegistry';
-import { type RunState } from './state/runSlice';
+import { type RunState } from './engine.runController';
 
 /** Combined output port the renderer implements. */
 export type MapActions = DrawMapActions & ResultLayerActions;

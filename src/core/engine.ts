@@ -67,7 +67,7 @@ export class SimulationEngine {
   getExecutor = (modelId: string): Executor | undefined => this._executors.get(modelId);
   findRun = (runId: string): RunRecord | undefined => {
     const c = this._state.run.current;
-    return c?.runId === runId ? c : this._state.run.history.find((r) => r.runId === runId);
+    return c?.runId === runId ? c : this._state.run.history.find((r: RunRecord) => r.runId === runId);
   };
 
   run = async (): Promise<void> => {
