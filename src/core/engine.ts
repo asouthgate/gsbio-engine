@@ -7,10 +7,7 @@ import type {
 } from './types';
 import { extractResultLayers } from './types';
 import type { ModelAction } from './engine.modelRegistry';
-// import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
-// import { modelReducer, initialModelState, type ModelAction } from './state/modelSlice';
 import { helloWorldModel } from './models/helloWorld';
-// import { runReducer, initialRunState, type RunAction } from './state/runSlice';
 
 import type { EngineState, EngineListener, MapActions } from './engine.types';
 import { SourceRegistry } from './engine.sourceRegistry';
