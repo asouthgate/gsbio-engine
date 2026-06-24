@@ -1,15 +1,12 @@
 import { useRun } from '../react';
 import type { RunStatus } from '../core';
 
-/** Statuses that count as "running" — the run button shows the sliding-hash
- *  overlay and disables interaction while in any of these states. */
 const ACTIVE: ReadonlySet<RunStatus> = new Set([
   'preprocessing',
   'submitting',
   'running',
 ]);
 
-/** Inline labels shown on the run button while in each active phase. */
 const PHASE_LABEL: Record<RunStatus, string> = {
   idle: 'Run model',
   preprocessing: 'Preparing…',
@@ -24,21 +21,6 @@ export interface RunPanelProps {
   className?: string;
 }
 
-/**
- * `<RunPanel>` — the run button + cancel + live progress indicator.
- *
- * **Stable class names** (themed by the host app; no shipped CSS here):
- * `.run-panel` (root, default from `className`)
- * `.btn-run` (the run button)
- * `.btn-run--idle | --active | --succeeded | --failed | --cancelled` (state)
- * `.btn-run__overlay` (the sliding-hash overlay, shown while active)
- * `.btn-run__label` (the inline status text)
- * `.btn-cancel` (the cancel button, shown only while active)
- * `.run-error` (inline error message, shown only when `status === 'failed'`)
- * `.run-progress` (progress bar wrapper; child `.run-progress__bar` has width set)
- *
- * The sliding-hash keyframes live in the demo app's stylesheet.
- */
 export function RunPanel({ className = 'run-panel' }: RunPanelProps) {
   const { state, run, cancel } = useRun();
   const cur = state.current;

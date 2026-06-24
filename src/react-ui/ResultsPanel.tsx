@@ -150,38 +150,9 @@ function RunRow({
 
 export interface ResultsPanelProps {
   className?: string;
-  /** When provided, the per-row "Log (N)" button opens this instead of the
-   *  inline expander — e.g. to launch a full-page modal. The host owns the
-   *  modal; the panel just hands back the run id. */
   onViewLog?: (runId: string, log: RunLogEntry[]) => void;
 }
 
-/**
- * `<ResultsPanel>` — list of runs, each with a "Show on map" master toggle plus
- * per-layer checkboxes when the run yields more than one addressable result
- * layer. A run whose `submit` returned zero layers (summary-only) shows no
- * toggle at all. Warnings emitted by the executor (via `ctx.onLog`) render as
- * an amber block; the run's audit log is reachable via a per-row "Log" button
- * (inline expander by default, or full-page modal when `onViewLog` is wired).
- *
- * **Stable class names** (themed by the host app; no shipped CSS here):
- * `.results-panel` (root, default from `className`)
- * `.results-panel__header` (toolbar row with title + Clear all)
- * `.run-list` (`<ul>`)
- * `.run-item` (each row)
- * `.run-item--succeeded | --failed | --cancelled | --visible | --partial` (state)
- * `.run-item__head`, `__name`, `__status`, `__error`, `__actions`
- * `.run-item__toggle` (master show/hide-all button)
- * `.run-item__expand` (collapse/expand the per-layer sub-list)
- * `.run-item__clear` (dismissal ✕ button)
- * `.run-item__layers` (`<ul>` of per-layer rows)
- * `.run-item__layer` (one per result layer) + `__layer-label`, `__layer-id`
- * `.run-item__warnings` (`<ul>` of amber warning lines) + `__warning`
- * `.run-item__log-toggle` (the inline-expander / "open full log" button)
- * `.run-item__log` (`<ul>` of inline log rows)
- * `.run-item__log-entry` + `--info | --warning | --error` + `__log-time`, `__log-message`
- * `.results-empty` (placeholder shown when there are no runs)
- */
 export function ResultsPanel({ className = 'results-panel', onViewLog }: ResultsPanelProps) {
   const { summaries, toggleResult, toggleResultLayer, clearResult, clearAll } = useResults();
   const rows = summaries;

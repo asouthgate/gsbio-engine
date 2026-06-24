@@ -2,20 +2,13 @@ import { useState } from 'react';
 import { useDraw, useDataSources } from '../react';
 import type { CircleGeometry, DataSourceDef, DrawnFeature, LngLat } from '../core';
 
-/* ----------------------------------------------------------------------- */
-/* Geometry-coordinate helpers (pure, view-only extractions from GeoJSON) */
-/* ----------------------------------------------------------------------- */
-
 type Coords2 = [number, number];
 type Coords3 = number[][];
 
 function pointCoords(f: DrawnFeature): LngLat | null {
   const g = f.geojson.geometry;
-
-  // 1. Ensure it's not a GeometryCollection (which lacks 'coordinates')
+  // GeometryCollection may lack 'coordinates'
   if ('coordinates' in g && Array.isArray(g.coordinates)) {
-    // 2. We now know g.coordinates is an array, but we need to 
-    // tell TS that indices 0 and 1 are definitely numbers.
     const lng = g.coordinates[0];
     const lat = g.coordinates[1];
 
@@ -51,9 +44,6 @@ function polygonRing(f: DrawnFeature): LngLat[] {
   return ring.map(([lng, lat]) => ({ lng, lat }));
 }
 
-/* ----------------------------------------------------------------------- */
-/* Per-kind field editors                                                  */
-/* ----------------------------------------------------------------------- */
 
 interface FieldsProps {
   feature: DrawnFeature;
@@ -140,7 +130,6 @@ function CircleFields({ feature }: FieldsProps) {
 interface VertexListFieldsProps {
   coords: LngLat[];
   onCoordsChange: (coords: LngLat[]) => void;
-  /** Hide the closing-duplicate vertex for polygons. */
   isRing?: boolean;
 }
 
@@ -237,9 +226,6 @@ function GeometryFields({ feature }: FieldsProps) {
   }
 }
 
-/* ----------------------------------------------------------------------- */
-/* Feature card with collapsible geometry inspector                         */
-/* ----------------------------------------------------------------------- */
 
 function FeatureCard({ id }: { id: string }) {
   const { state, dispatch, removeFeature, toggleVisibility } = useDraw();
