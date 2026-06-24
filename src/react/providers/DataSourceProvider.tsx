@@ -1,13 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useDraw } from '../useEngine';
-import { DRAWN_SOURCE_ID } from '../../core';
 import type { DataSourceDef } from '../../core';
 
+export const DRAWN_SOURCE_ID = 'drawn-features';
+
 interface DataSourceContextValue {
-  /** Combined list of all data source definitions, drawn source first. */
   sources: DataSourceDef[];
-  /** The built-in drawn-features source. */
   drawnSource: DataSourceDef;
 }
 

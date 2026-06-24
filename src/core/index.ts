@@ -8,7 +8,6 @@
 
 export * from './types';
 export * from './spatial';
-export * from './data/sourceRegistry';
 export * from './models/registry';
 export * from './models/helloWorld';
 export * from './state/drawSlice';

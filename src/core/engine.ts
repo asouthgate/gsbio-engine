@@ -6,13 +6,13 @@ import type {
   RunLogLevel, RunProgress, RunRecord
 } from './types';
 import { extractResultLayers } from './types';
-import { ensureDefaultDataSources } from './data/sourceRegistry';
 import { ensureDefaultModels, ensureDefaultExecutors, registerModel as registerModelIntoRegistry } from './models/registry';
 import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
 import { modelReducer, initialModelState, type ModelAction } from './state/modelSlice';
 import { runReducer, initialRunState, type RunAction } from './state/runSlice';
 
 import type { EngineState, EngineListener, MapActions } from './engine.types';
+import { SourceRegistry } from './engine.sourceRegistry';
 export type { EngineState, EngineListener, MapActions };
 
 export class SimulationEngine {
@@ -23,6 +23,9 @@ export class SimulationEngine {
   private _abort: AbortController | null = null;
   private _currentRun: Promise<void> | null = null;
   autoShowResults = false;
+
+  // Data sources
+  public readonly dataSources = new SourceRegistry();
 
   // Sub-modules allocated on creation
   public readonly drawing = new EngineDrawingActions(this);
@@ -36,7 +39,6 @@ export class SimulationEngine {
   constructor() {
     ensureDefaultModels();
     ensureDefaultExecutors(this._executors);
-    ensureDefaultDataSources();
     this._state = {
       draw: initialDrawState,
       model: initialModelState,
