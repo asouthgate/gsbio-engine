@@ -1,9 +1,8 @@
 /**
- * ../react — React bindings for ../core.
+ * React bindings for the ../core engine.
  *
  * Export hooks, the `EngineProvider` / `AppProvider`, and the
- * renderer-agnostic `Canvas` host. This package contains no simulation logic
- * and no rendering-backend code — it only maps the engine's state into React.
+ * renderer-agnostic `Canvas` host.
  */
 
 export { EngineProvider, useEngine, useEngineState, useDraw, useModel, useRun, useResults } from './useEngine';

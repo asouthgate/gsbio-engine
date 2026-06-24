@@ -186,3 +186,7 @@ const renderer = useMemo<TerraDraw2DRenderer>(
 return <MapScene renderer={renderer}>…</MapScene>;
 ```
 
+# React bindings
+
+React bindings `src/react/` are used to connect the simulation engine to react. In future, other
+frameworks may be supported (or not).

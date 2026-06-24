@@ -1,4 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
+/** 
+ * See useSyncExternalStore; the engineListener is used to broadcast state changes.
+ * This will propagate the engine state object to relevant components.
+ * 
+ */
 import {
   createContext,
   useContext,
@@ -21,7 +26,6 @@ import { type ModelAction } from '../core/engine.modelRegistry';
 const EngineContext = createContext<SimulationEngine | null>(null);
 
 export interface EngineProviderProps {
-  /** Inject an existing engine (e.g. for tests). By default a new one is created. */
   engine?: SimulationEngine;
   children: ReactNode;
 }
@@ -45,7 +49,6 @@ export function useEngineState(): EngineState {
   return useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
 }
 
-/* ------------------------------- useDraw -------------------------------- */
 
 export interface DrawHook {
   state: EngineState['draw'];
@@ -77,11 +80,6 @@ export function useDraw(): DrawHook {
   };
 }
 
-/* ------------------------------- useModel ------------------------------- */
-//
-// Schema-only: choose model + edit params. The act of running lives in
-// `useRun` / `useResults` (the `Executor` port owns network).
-
 export interface ModelHook {
   state: EngineState['model'];
   dispatch: (action: ModelAction) => void;
@@ -96,15 +94,9 @@ export function useModel(): ModelHook {
   };
 }
 
-/* -------------------------------- useRun -------------------------------- */
-
 export interface RunHook {
   state: EngineState['run'];
-  /** Start a new run for the current model + params. Cancels any in-flight
-   *  run. Resolves when the run finishes (succeeded/failed/cancelled); most
-   *  callers ignore the returned promise and just observe `state`. */
   run: () => Promise<void>;
-  /** Abort the current in-flight run, if any. */
   cancel: () => void;
 }
 
@@ -118,17 +110,12 @@ export function useRun(): RunHook {
   };
 }
 
-/* ------------------------------ useResults ------------------------------ */
-
 export interface ResultsHook {
-  /** Ordered summaries of all runs (current + history), newest-first. */
   summaries: RunSummary[];
-  /** The current (in-flight or most recent) run, or null. */
   current: RunSummary | null;
   showResult: (runId: string) => void;
   hideResult: (runId: string) => void;
   toggleResult: (runId: string) => void;
-  /** Toggle a single result layer's visibility within a run. */
   showResultLayer: (runId: string, layerId: string) => void;
   hideResultLayer: (runId: string, layerId: string) => void;
   toggleResultLayer: (runId: string, layerId: string) => void;
@@ -139,9 +126,6 @@ export interface ResultsHook {
 export function useResults(): ResultsHook {
   const engine = useEngine();
   const { run } = useEngineState();
-  // Cheap projection of the slice into summaries (drops the heavy `result`
-  // payload; keeps only the cheap layer-id strings). Re-runs on every engine
-  // state change; memoised on `run`.
   const summaries = useMemo(() => engine.runs.allSummaries(run), [run]);
   return {
     summaries,
