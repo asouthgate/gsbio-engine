@@ -10,11 +10,12 @@ import type { ModelAction } from './engine.modelRegistry';
 // import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
 // import { modelReducer, initialModelState, type ModelAction } from './state/modelSlice';
 import { helloWorldModel } from './models/helloWorld';
-import { runReducer, initialRunState, type RunAction } from './state/runSlice';
+// import { runReducer, initialRunState, type RunAction } from './state/runSlice';
 
 import type { EngineState, EngineListener, MapActions } from './engine.types';
 import { SourceRegistry } from './engine.sourceRegistry';
 import { ModelRegistry } from './engine.modelRegistry';
+import { EngineRunController, type RunAction } from './engine.runController';
 export type { EngineState, EngineListener, MapActions };
 
 export class SimulationEngine {
@@ -31,6 +32,7 @@ export class SimulationEngine {
   // Sub-modules allocated on creation
   public readonly drawing = new EngineDrawingController(this);
   public readonly results = new EngineResultActions(this);
+  public readonly runs = new EngineRunController();
 
   private _nextRunId = (): string =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -41,7 +43,7 @@ export class SimulationEngine {
     this.models.register(helloWorldModel);
     this._state = {
       draw: this.drawing.getInitialState(),
-      run: initialRunState,
+      run: this.runs.getInitialState(),
       model: this.models.getInitialState('hello-world'), // just sets it to hello-world to start
     };
   }
@@ -57,7 +59,7 @@ export class SimulationEngine {
 
   dispatchDraw = (action: DrawAction): void => this.patch({ draw: this.drawing.reducer(this._state.draw, action) });
   dispatchModel = (action: ModelAction): void => this.patch({ model: this.models.reducer(this._state.model, action) });
-  dispatchRun = (action: RunAction): void => this.patch({ run: runReducer(this._state.run, action) });
+  dispatchRun = (action: RunAction): void => this.patch({ run: this.runs.reducer(this._state.run, action) });
 
   setMapActions(actions: MapActions): void { this.mapActions = actions; }
   registerModel = (def: ModelDef): void => { this.models.register(def); };

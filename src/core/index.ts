@@ -19,6 +19,7 @@ export {
   type DrawState,
   type DrawAction,
 } from './engine.drawing';
+
 export {
   SimulationEngine,
   createSimulationEngine,
@@ -26,3 +27,9 @@ export {
   type EngineListener,
   type MapActions,
 } from './engine';
+
+export {
+  EngineRunController,
+  type RunState,
+  type RunAction,
+} from './engine.runController';
