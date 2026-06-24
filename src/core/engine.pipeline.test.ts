@@ -2,10 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   createSimulationEngine,
   type Executor,
-  type DrawnFeature,
-  type LngLat,
-  type MapActions,
 } from './index';
+import type { MapActions } from './engine.types';
 
 
 /**
@@ -189,10 +187,10 @@ describe('run pipeline', () => {
     engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
-    engine.showResult(runId);
+    engine.results.showResult(runId);
     expect(actions.addResultLayer).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current!.visible).toBe(true);
-    engine.hideResult(runId);
+    engine.results.hideResult(runId);
     expect(actions.removeResultLayer).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current!.visible).toBe(false);
   });
@@ -203,8 +201,8 @@ describe('run pipeline', () => {
     engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
-    engine.showResult(runId);
-    engine.clearResult(runId);
+    engine.results.showResult(runId);
+    engine.results.clearResult(runId);
     expect(actions.removeResultLayer).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current).toBeNull();
   });
@@ -214,8 +212,8 @@ describe('run pipeline', () => {
     const { provider } = makeProvider();
     engine.registerExecutor('hello-world', provider);
     await engine.run();
-    engine.showResult(engine.getSnapshot().run.current!.runId);
-    engine.clearAllResults();
+    engine.results.showResult(engine.getSnapshot().run.current!.runId);
+    engine.results.clearAllResults();
     expect(actions.removeResultLayer).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current).toBeNull();
     expect(engine.getSnapshot().run.history).toEqual([]);
@@ -251,20 +249,20 @@ describe('run pipeline', () => {
     expect(rec.visible).toBe(false);
 
     // Per-layer show fans out exactly one addResultLayer per layer.
-    engine.showResultLayer(runId, 'c1');
+    engine.results.showResultLayer(runId, 'c1');
     expect(add).toHaveBeenCalledTimes(1);
     expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ kind: 'image', url: 'data:1' }));
     expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
     expect(engine.getSnapshot().run.current!.visible).toBe(true);
 
     // Whole-run show adds the remaining layer only (idempotency).
-    engine.showResult(runId);
+    engine.results.showResult(runId);
     expect(add).toHaveBeenCalledTimes(2);
     expect(add).toHaveBeenLastCalledWith(runId, 'c2', expect.objectContaining({ kind: 'image', url: 'data:2' }));
     expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1', 'c2']);
 
     // Per-layer hide removes exactly that layer.
-    engine.hideResultLayer(runId, 'c1');
+    engine.results.hideResultLayer(runId, 'c1');
     expect(remove).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledWith(runId, 'c1');
     expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c2']);
@@ -273,14 +271,14 @@ describe('run pipeline', () => {
     expect(sum.visibleLayerIds.length).toBe(1);
     expect(sum.layerIds.length).toBe(2);
     // Whole-run hide empties the rest.
-    engine.hideResult(runId);
+    engine.results.hideResult(runId);
     expect(remove).toHaveBeenCalledTimes(2);
     expect(remove).toHaveBeenLastCalledWith(runId, 'c2');
     expect(engine.getSnapshot().run.current!.visible).toBe(false);
 
     // clearResult tears down everything currently visible.
-    engine.showResult(runId);
-    engine.clearResult(runId);
+    engine.results.showResult(runId);
+    engine.results.clearResult(runId);
     expect(remove).toHaveBeenCalledTimes(4); // 2 from hide above + 2 from clear
     expect(engine.getSnapshot().run.current).toBeNull();
   });
@@ -299,8 +297,8 @@ describe('run pipeline', () => {
     engine.registerExecutor('hello-world', provider);
     await engine.run();
     const runId = engine.getSnapshot().run.current!.runId;
-    engine.showResult(runId);
-    engine.showResultLayer(runId, 'whatever');
+    engine.results.showResult(runId);
+    engine.results.showResultLayer(runId, 'whatever');
     expect(add).not.toHaveBeenCalled();
     expect(engine.getSnapshot().run.current!.visible).toBe(false);
     expect(engine.getSnapshot().run.current!.layerIds).toEqual([]);

@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   createSimulationEngine,
-  type Executor,
   type DrawnFeature,
   type LngLat,
-  type MapActions,
 } from './index';
 
 /** 
@@ -72,7 +70,7 @@ const PERTH: LngLat = { lng: 115.86, lat: -31.95 };
 describe('updatePointPosition', () => {
   it('moves the point and pushes geometry to the map', () => {
     const { engine, actions } = engineWith(feature('p1', 'point'));
-    engine.updatePointPosition('p1', PERTH);
+    engine.drawing.updatePointPosition('p1', PERTH);
     const f = engine.getSnapshot().draw.features[0];
     expect((f.geojson.geometry as GeoJSON.Point).coordinates).toEqual([PERTH.lng, PERTH.lat]);
     expect(f.geojson.id).toBe('p1');
@@ -83,7 +81,7 @@ describe('updatePointPosition', () => {
 
   it('no-ops on a non-point feature', () => {
     const { engine, actions } = engineWith(feature('l1', 'linestring'));
-    engine.updatePointPosition('l1', PERTH);
+    engine.drawing.updatePointPosition('l1', PERTH);
     expect(actions.updateFeatureGeometry).not.toHaveBeenCalled();
   });
 });
@@ -91,7 +89,7 @@ describe('updatePointPosition', () => {
 describe('updateCircle', () => {
   it('updates radius and regenerates the polygon approximation', () => {
     const { engine, actions } = engineWith(feature('c1', 'circle'));
-    engine.updateCircle('c1', { radiusMeters: 250 });
+    engine.drawing.updateCircle('c1', { radiusMeters: 250 });
     const f = engine.getSnapshot().draw.features[0];
     expect(f.circle?.radiusMeters).toBe(250);
     expect(f.circle?.center).toEqual({ lng: 0, lat: 0 });
@@ -103,7 +101,7 @@ describe('updateCircle', () => {
 
   it('updates center and regenerates the polygon approximation', () => {
     const { engine, actions } = engineWith(feature('c1', 'circle'));
-    engine.updateCircle('c1', { center: PERTH });
+    engine.drawing.updateCircle('c1', { center: PERTH });
     const f = engine.getSnapshot().draw.features[0];
     expect(f.circle?.center).toEqual(PERTH);
     expect(f.circle?.radiusMeters).toBe(100);
@@ -112,7 +110,7 @@ describe('updateCircle', () => {
 
   it('no-ops on a non-circle feature', () => {
     const { engine, actions } = engineWith(feature('p1', 'point'));
-    engine.updateCircle('p1', { radiusMeters: 999 });
+    engine.drawing.updateCircle('p1', { radiusMeters: 999 });
     expect(actions.updateFeatureGeometry).not.toHaveBeenCalled();
   });
 });
@@ -121,7 +119,7 @@ describe('updateLineStringCoords', () => {
   it('replaces vertices and pushes geometry to the map', () => {
     const { engine, actions } = engineWith(feature('l1', 'linestring'));
     const coords: LngLat[] = [{ lng: 1, lat: 2 }, { lng: 3, lat: 4 }, { lng: 5, lat: 6 }];
-    engine.updateLineStringCoords('l1', coords);
+    engine.drawing.updateLineStringCoords('l1', coords);
     const f = engine.getSnapshot().draw.features[0];
     expect((f.geojson.geometry as GeoJSON.LineString).coordinates).toEqual([
       [1, 2], [3, 4], [5, 6],
@@ -133,7 +131,7 @@ describe('updateLineStringCoords', () => {
 
   it('no-ops on a non-linestring feature', () => {
     const { engine, actions } = engineWith(feature('p1', 'point'));
-    engine.updateLineStringCoords('p1', [PERTH]);
+    engine.drawing.updateLineStringCoords('p1', [PERTH]);
     expect(actions.updateFeatureGeometry).not.toHaveBeenCalled();
   });
 });
@@ -146,7 +144,7 @@ describe('updatePolygonRing', () => {
       { lng: 2, lat: 0 },
       { lng: 2, lat: 2 },
     ];
-    engine.updatePolygonRing('pg1', ring);
+    engine.drawing.updatePolygonRing('pg1', ring);
     const f = engine.getSnapshot().draw.features[0];
     const coords = (f.geojson.geometry as GeoJSON.Polygon).coordinates[0];
     expect(coords).toHaveLength(4);
@@ -159,7 +157,7 @@ describe('updatePolygonRing', () => {
 
   it('no-ops on a non-polygon feature', () => {
     const { engine, actions } = engineWith(feature('p1', 'point'));
-    engine.updatePolygonRing('p1', [PERTH]);
+    engine.drawing.updatePolygonRing('p1', [PERTH]);
     expect(actions.updateFeatureGeometry).not.toHaveBeenCalled();
   });
 });
