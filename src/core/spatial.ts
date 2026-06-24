@@ -1,15 +1,3 @@
-/**
- * gsbio engine — Coordinate / Projection service.
- *
- * The engine stores geometry in geographic (lat/lng) coordinates so analysis
- * is independent of any rendering surface. The render side asks the engine's
- * `CoordinateService` (or supplies its own projection function) to translate
- * between geographic coordinates and screen pixels.
- *
- * Spatial queries (`pointInPolygon`, `haversineDistance`)
- * are framework-agnostic and run anywhere — Node, Web Worker, or browser.
- */
-
 export interface LngLat {
   lng: number;
   lat: number;
