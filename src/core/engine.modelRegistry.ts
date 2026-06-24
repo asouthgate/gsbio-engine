@@ -54,6 +54,11 @@ export class ModelRegistry {
     switch (action.type) {
       case 'SET_MODEL': {
         const def = this.get(action.payload);
+        // Only update if the model exists in the registry!
+        if (!def) {
+          console.warn(`[Engine] Cannot set model: ${action.payload} not found.`);
+          return state; 
+        }
         return {
           ...state,
           modelId: action.payload,
@@ -71,6 +76,7 @@ export class ModelRegistry {
           params: { ...state.params, ...action.payload } 
         };
       default:
+        console.warn(`[Engine] Unexpected action type: ${(action as any).type}`);
         return state;
     }
   }
