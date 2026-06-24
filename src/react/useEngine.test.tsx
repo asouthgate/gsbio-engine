@@ -3,36 +3,45 @@
  */
 import { describe, it, expect} from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { EngineProvider, useDraw, useModel } from './useEngine';
+import { EngineProvider, useFeatures, useModel } from './useEngine';
 import { createSimulationEngine } from '../core';
 
 describe('Engine Hooks', () => {
-  // Use a factory function to ensure a clean engine for every test
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <EngineProvider engine={createSimulationEngine()}>
       {children}
     </EngineProvider>
   );
 
-  it('useDraw provides initial state and actions', () => {
-    const { result } = renderHook(() => useDraw(), { wrapper });
-    // console.log('HOOK RESULT:', JSON.stringify(result.current.state, null, 2));
+  it('useFeatures provides initial state and actions', () => {
+    const { result } = renderHook(() => useFeatures(), { wrapper });
     expect(result.current.state).toBeDefined();
-    expect(result.current.state.drawMode).toBe('select');
+    expect(result.current.state.features).toEqual([]);
+    expect(result.current.state.selectedFeatureId).toBeNull();
   });
 
-  it('updates state reactively when the engine updates', () => {
-    const { result } = renderHook(() => useDraw(), { wrapper });
-    // Act: Manually trigger a change in the engine
+  it('dispatches feature actions', () => {
+    const { result } = renderHook(() => useFeatures(), { wrapper });
     act(() => {
-      result.current.startDrawing('circle', 'hazard_zone');
+      result.current.dispatch({
+        type: 'ADD_FEATURE',
+        payload: {
+          id: 'f1',
+          geometryKind: 'point',
+          category: '',
+          label: '',
+          visible: true,
+          geojson: { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} },
+        },
+      });
     });
-    expect(result.current.state.drawMode).toBe('circle');
+    expect(result.current.state.features).toHaveLength(1);
+    expect(result.current.state.features[0].id).toBe('f1');
   });
 
-  it('correctly dispatches actions to the engine', () => {
+  it('correctly dispatches model actions to the engine', () => {
     const engine = createSimulationEngine();
-    engine.registerModel({ id: 'model_a', name: 'Test Model', params: [] }); 
+    engine.registerModel({ id: 'model_a', name: 'Test Model', params: [] });
     const wrapper = ({ children }: { children: React.ReactNode }) => (
         <EngineProvider engine={engine}>{children}</EngineProvider>
     );
@@ -44,27 +53,32 @@ describe('Engine Hooks', () => {
     act(() => {
         result.current.dispatch({ type: 'SET_MODEL', payload: 'model_b' });
     });
-    // console.log('HOOK RESULT:', JSON.stringify(result.current.state, null, 2));
-    // console.log('ENGINE STATE:', JSON.stringify(engine.getSnapshot().model, null, 2));
-    // console.log('MODEL STATE:', JSON.stringify(engine.models.list(), null, 2));
-    expect(result.current.state.modelId).toBe('model_a');  // still a
+    expect(result.current.state.modelId).toBe('model_a');
   });
 
   it('maintains independent state per provider', () => {
-    // This tests that multiple instances don't cross-talk
     const customWrapper = ({ children }: { children: React.ReactNode }) => (
       <EngineProvider engine={createSimulationEngine()}>{children}</EngineProvider>
     );
 
-    const hook1 = renderHook(() => useDraw(), { wrapper: customWrapper });
-    const hook2 = renderHook(() => useDraw(), { wrapper: customWrapper });
+    const hook1 = renderHook(() => useFeatures(), { wrapper: customWrapper });
+    const hook2 = renderHook(() => useFeatures(), { wrapper: customWrapper });
 
     act(() => {
-      hook1.result.current.startDrawing('line', 'test');
+      hook1.result.current.dispatch({
+        type: 'ADD_FEATURE',
+        payload: {
+          id: 'f1',
+          geometryKind: 'linestring',
+          category: '',
+          label: '',
+          visible: true,
+          geojson: { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, properties: {} },
+        },
+      });
     });
 
-    // Assert: hook1 changed, but hook2 should still be in 'select' mode
-    expect(hook1.result.current.state.drawMode).toBe('line');
-    expect(hook2.result.current.state.drawMode).toBe('select');
+    expect(hook1.result.current.state.features).toHaveLength(1);
+    expect(hook2.result.current.state.features).toHaveLength(0);
   });
 });

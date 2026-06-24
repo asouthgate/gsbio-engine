@@ -93,7 +93,7 @@ export function destinationPoint(
  * Build a GeoJSON `Polygon` feature approximating a circle on the Earth's
  * surface: `segments` points spaced at `radiusMeters` along great-circle
  * bearings from `center`. Suitable for storage + rendering; the semantic
- * truth (`center` + `radiusMeters`) lives on `DrawnFeature.circle`.
+ * truth (`center` + `radiusMeters`) lives on `DataFeature.circle`.
  */
 export function circleToPolygon(
   center: LngLat,

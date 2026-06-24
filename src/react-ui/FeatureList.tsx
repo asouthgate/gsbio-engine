@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { useDraw, useDataSources } from '../react';
-import type { CircleGeometry, DataSourceDef, DrawnFeature, LngLat } from '../core';
+import { useFeatures, useDataSources } from '../react';
+import type { CircleGeometry, DataSourceDef, DataFeature, LngLat } from '../core';
 
 type Coords2 = [number, number];
 type Coords3 = number[][];
 
-function pointCoords(f: DrawnFeature): LngLat | null {
+function pointCoords(f: DataFeature): LngLat | null {
   const g = f.geojson.geometry;
-  // GeometryCollection may lack 'coordinates'
   if ('coordinates' in g && Array.isArray(g.coordinates)) {
     const lng = g.coordinates[0];
     const lat = g.coordinates[1];
@@ -16,11 +15,11 @@ function pointCoords(f: DrawnFeature): LngLat | null {
       return { lng, lat };
     }
   }
-  
+
   return null;
 }
 
-function lineStringCoords(f: DrawnFeature): LngLat[] {
+function lineStringCoords(f: DataFeature): LngLat[] {
   const g = f.geojson.geometry;
   if ('coordinates' in g && Array.isArray(g.coordinates)) {
     if (g.coordinates.length > 0 && Array.isArray(g.coordinates[0])) {
@@ -30,8 +29,7 @@ function lineStringCoords(f: DrawnFeature): LngLat[] {
   return [];
 }
 
-/** Outer ring, with the closing duplicate vertex stripped for display. */
-function polygonRing(f: DrawnFeature): LngLat[] {
+function polygonRing(f: DataFeature): LngLat[] {
   const g = f.geojson.geometry as { coordinates: Coords3[] };
   const ring = g.coordinates[0] ?? [];
   if (ring.length > 1) {
@@ -46,11 +44,11 @@ function polygonRing(f: DrawnFeature): LngLat[] {
 
 
 interface FieldsProps {
-  feature: DrawnFeature;
+  feature: DataFeature;
 }
 
 function PointFields({ feature }: FieldsProps) {
-  const { updatePointPosition } = useDraw();
+  const { updatePointPosition } = useFeatures();
   const c = pointCoords(feature) ?? { lng: 0, lat: 0 };
   const set = (key: 'lng' | 'lat', v: number) =>
     updatePointPosition(feature.id, { ...c, [key]: v } as LngLat);
@@ -83,7 +81,7 @@ function PointFields({ feature }: FieldsProps) {
 }
 
 function CircleFields({ feature }: FieldsProps) {
-  const { updateCircle } = useDraw();
+  const { updateCircle } = useFeatures();
   const circle: CircleGeometry = feature.circle ?? { center: { lng: 0, lat: 0 }, radiusMeters: 0 };
   const setCenter = (key: 'lng' | 'lat', v: number) =>
     updateCircle(feature.id, { center: { ...circle.center, [key]: v } });
@@ -139,7 +137,6 @@ function VertexListFields({ coords, onCoordsChange, isRing }: VertexListFieldsPr
     onCoordsChange(next);
   };
   const remove = (i: number) => {
-    // rings need >= 3 vertices to remain a valid polygon; linestrings >= 2.
     const min = isRing ? 3 : 2;
     if (coords.length <= min) return;
     onCoordsChange(coords.filter((_, j) => j !== i));
@@ -195,7 +192,7 @@ function VertexListFields({ coords, onCoordsChange, isRing }: VertexListFieldsPr
 }
 
 function LineStringFields({ feature }: FieldsProps) {
-  const { updateLineStringCoords } = useDraw();
+  const { updateLineStringCoords } = useFeatures();
   const coords = lineStringCoords(feature);
   return (
     <VertexListFields
@@ -206,7 +203,7 @@ function LineStringFields({ feature }: FieldsProps) {
 }
 
 function PolygonFields({ feature }: FieldsProps) {
-  const { updatePolygonRing } = useDraw();
+  const { updatePolygonRing } = useFeatures();
   const ring = polygonRing(feature);
   return (
     <VertexListFields
@@ -228,9 +225,9 @@ function GeometryFields({ feature }: FieldsProps) {
 
 
 function FeatureCard({ id }: { id: string }) {
-  const { state, dispatch, removeFeature, toggleVisibility } = useDraw();
+  const { state, dispatch, removeFeature, toggleVisibility } = useFeatures();
   const [open, setOpen] = useState(false);
-  const feature = state.features.find((f: DrawnFeature) => f.id === id);
+  const feature = state.features.find((f: DataFeature) => f.id === id);
 
   if (!feature) return null;
 
@@ -289,8 +286,8 @@ function FeatureCard({ id }: { id: string }) {
 }
 
 function SourceBlock({ source }: { source: DataSourceDef }) {
-  const { state } = useDraw();
-  const features = state.features.filter((f: DrawnFeature) => source.featureIds.includes(f.id));
+  const { state } = useFeatures();
+  const features = state.features.filter((f: DataFeature) => source.featureIds.includes(f.id));
   return (
     <div className="data-source-block">
       <div className="data-source-header">
@@ -301,7 +298,7 @@ function SourceBlock({ source }: { source: DataSourceDef }) {
         <p className="hint">No features in this source yet. Use the toolbar above the map to draw.</p>
       ) : (
         <div className="data-feature-list">
-          {features.map((f: DrawnFeature) => <FeatureCard key={f.id} id={f.id} />)}
+          {features.map((f: DataFeature) => <FeatureCard key={f.id} id={f.id} />)}
         </div>
       )}
     </div>

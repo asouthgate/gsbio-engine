@@ -1,19 +1,13 @@
-// simulation-engine.types.ts
-import type { 
-  DrawMapActions, 
-  ResultLayerActions, 
-} from './types';
+import type { FeatureMapActions } from './engine.featureStore.types';
+import type { ResultLayerActions } from './engine.runController.types';
+import type { FeatureState } from './engine.featureStore';
+import type { ModelState } from './engine.modelRegistry';
+import type { RunState } from './engine.runController';
 
-import { type DrawState } from './engine.drawing';
-import { type ModelState } from './engine.modelRegistry';
-import { type RunState } from './engine.runController';
+export type MapActions = FeatureMapActions & ResultLayerActions;
 
-/** Combined output port the renderer implements. */
-export type MapActions = DrawMapActions & ResultLayerActions;
-
-/** Combined runtime state surfaced to subscribers. */
 export interface EngineState {
-  draw: DrawState;
+  features: FeatureState;
   model: ModelState;
   run: RunState;
 }

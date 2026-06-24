@@ -1,4 +1,4 @@
-import type { DrawnFeature } from './engine.drawing.types';
+import type { DataFeature } from './engine.featureStore.types';
 import type { ModelParams } from './engine.modelRegistry.types';
 import type { MapLayerEnvelope } from './spatial.types';
 
@@ -14,7 +14,7 @@ export interface RunLogEntry {
 export interface PreprocessContext {
   modelId: string;
   params: ModelParams;
-  features: ReadonlyArray<DrawnFeature>;
+  features: ReadonlyArray<DataFeature>;
   onLog?: (level: RunLogLevel, message: string) => void;
 }
 

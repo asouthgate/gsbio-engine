@@ -12,12 +12,11 @@ export * from './models/helloWorld';
 export * from './mapStyles';
 export * from './stubExecutor';
 
-// Export your new unified drawing infrastructure completely
 export {
-  EngineDrawingController,
-  type DrawState,
-  type DrawAction,
-} from './engine.drawing';
+  FeatureStore,
+  type FeatureState,
+  type FeatureAction,
+} from './engine.featureStore';
 
 export {
   SimulationEngine,

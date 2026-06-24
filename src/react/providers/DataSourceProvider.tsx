@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useDraw } from '../useEngine';
-import type { DataSourceDef, DrawnFeature } from '../../core';
+import { useFeatures } from '../useEngine';
+import type { DataSourceDef, DataFeature } from '../../core';
 
 export const DRAWN_SOURCE_ID = 'drawn-features';
 
@@ -16,13 +16,13 @@ const DataSourceContext = createContext<DataSourceContextValue>({
 });
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
-  const { state } = useDraw();
+  const { state } = useFeatures();
   const drawnSource = useMemo<DataSourceDef>(
     () => ({
       id: DRAWN_SOURCE_ID,
       name: 'Drawn features',
       kind: 'drawn',
-      featureIds: state.features.map((f: DrawnFeature) => f.id),
+      featureIds: state.features.map((f: DataFeature) => f.id),
     }),
     [state.features],
   );

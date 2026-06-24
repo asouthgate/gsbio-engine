@@ -5,7 +5,7 @@
  * so the only visible difference between the archetypes is the compute path.
  */
 
-import type { DrawnFeature } from '@gsbio/engine';
+import type { DataFeature } from '@gsbio/engine';
 
 export interface Zone {
   id: string;
@@ -14,7 +14,7 @@ export interface Zone {
 }
 
 /** Filter drawn features down to `Spread_zone` circles. */
-export function selectSpreadZones(features: ReadonlyArray<DrawnFeature>): Zone[] {
+export function selectSpreadZones(features: ReadonlyArray<DataFeature>): Zone[] {
   const out: Zone[] = [];
   for (const f of features) {
     if (f.category === 'Spread_zone' && f.geometryKind === 'circle' && f.circle) {

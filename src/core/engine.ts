@@ -1,7 +1,7 @@
-import { EngineDrawingController } from './engine.drawing';
-import type { DrawAction } from './engine.drawing';
-import type { 
-  Executor, DrawnFeature, ModelDef, 
+import { FeatureStore } from './engine.featureStore';
+import type { FeatureAction } from './engine.featureStore';
+import type {
+  Executor, DataFeature, ModelDef,
   RunLogLevel, RunProgress, RunRecord
 } from './types';
 import { extractResultLayers } from './types';
@@ -25,9 +25,7 @@ export class SimulationEngine {
 
   public readonly dataSources = new SourceRegistry();
   public models = new ModelRegistry();
-  // Sub-modules allocated on creation
-  public readonly drawing = new EngineDrawingController(this);
-  // public readonly results = new EngineResultActions(this);
+  public readonly features = new FeatureStore(this);
   public readonly runs = new EngineRunController(this);
 
   private _nextRunId = (): string =>
@@ -38,9 +36,9 @@ export class SimulationEngine {
   constructor() {
     this.models.register(helloWorldModel);
     this._state = {
-      draw: this.drawing.getInitialState(),
+      features: this.features.getInitialState(),
       run: this.runs.getInitialState(),
-      model: this.models.getInitialState('hello-world'), // just sets it to hello-world to start
+      model: this.models.getInitialState('hello-world'),
     };
   }
 
@@ -53,7 +51,7 @@ export class SimulationEngine {
   private emit() { for (const l of this._listeners) l(); }
   private patch(partial: Partial<EngineState>) { this._state = { ...this._state, ...partial }; this.emit(); }
 
-  dispatchDraw = (action: DrawAction): void => this.patch({ draw: this.drawing.reducer(this._state.draw, action) });
+  dispatchFeature = (action: FeatureAction): void => this.patch({ features: this.features.reducer(this._state.features, action) });
   dispatchModel = (action: ModelAction): void => this.patch({ model: this.models.reducer(this._state.model, action) });
   dispatchRun = (action: RunAction): void => this.patch({ run: this.runs.reducer(this._state.run, action) });
 
@@ -86,26 +84,26 @@ export class SimulationEngine {
       const onLog = (level: RunLogLevel, message: string): void => {
         if (this._abort === ac && !ac.signal.aborted) rawAppend(level, message);
       };
-      
+
       rawAppend('info', `Run started · model "${modelId}"`);
       try {
         const executor = this._executors.get(modelId);
         if (!executor) throw new Error(`No executor registered for model "${modelId}"`);
-        
-        const features: ReadonlyArray<DrawnFeature> = this._state.draw.features;
+
+        const features: ReadonlyArray<DataFeature> = this._state.features.features;
         this.dispatchRun({ type: 'PREPROCESS_START' });
         rawAppend('info', 'Preprocessing…');
         const { payload } = await executor.preprocess({ modelId, params, features, onLog }, ac.signal);
-        
+
         if (ac.signal.aborted) return;
         this.dispatchRun({ type: 'SUBMIT_START' });
         rawAppend('info', 'Submitting…');
-        
+
         const onProgress = (p: RunProgress): void => {
           if (!ac.signal.aborted && this._abort === ac) this.dispatchRun({ type: 'PROGRESS', payload: p });
         };
         const result = await executor.submit({ modelId, params, payload, onProgress, onLog }, ac.signal);
-        
+
         if (this._abort === ac && !ac.signal.aborted) {
           this.dispatchRun({ type: 'RUN_SUCCEED', result, finishedAt: Date.now() });
           const layerCount = extractResultLayers(result, runId).length;

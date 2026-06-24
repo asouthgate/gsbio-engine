@@ -11,7 +11,7 @@ export interface AppProviderProps {
 /**
  * Composite provider: creates a SimulationEngine (or accepts one) and wires
  * the data-source provider that derives a drawn-features source from engine
- * state. Consumers read via `useEngine`, `useDraw`, `useModel`,
+ * state. Consumers read via `useEngine`, `useFeatures`, `useModel`,
  * `useDataSources`.
  */
 export function AppProvider({ children, engine }: AppProviderProps) {

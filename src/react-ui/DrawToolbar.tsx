@@ -1,25 +1,12 @@
-import { type ReactNode } from 'react';
-import { useDraw } from '../react';
-import type { DrawMode } from '../core';
+import { useState, type ReactNode } from 'react';
+import type { DrawMode } from '../renderer-2d';
 
-/**
- * A single tool entry in the toolbar. Two tools may share a `mode` (e.g. two
- * `circle` tools, one labelled "Roost" and one "Light Source"); the label
- * becomes the created feature's `category`, so features are later retrievable
- * by category via `featuresByCategory()`.
- */
 export interface DrawTool {
   mode: DrawMode;
   label: string;
-  /**
-   * Optional icon. May be a string (emoji/char), an SVG component, or any
-   * renderable ReactNode. Omit to fall back to the engine's default glyph
-   * for `mode` (see `MODE_ICONS`).
-   */
   icon?: ReactNode;
 }
 
-/** Default tools — every logical mode with its default label. */
 export const DEFAULT_DRAW_TOOLS: readonly DrawTool[] = [
   { mode: 'select', label: 'Select' },
   { mode: 'point', label: 'Point' },
@@ -28,7 +15,7 @@ export const DEFAULT_DRAW_TOOLS: readonly DrawTool[] = [
   { mode: 'circle', label: 'Circle' },
 ];
 
-const MODE_ICONS: Record<DrawMode, string> = {
+const MODE_ICONS: Record<string, string> = {
   select: '☝',
   point: '◉',
   linestring: '〰',
@@ -38,28 +25,33 @@ const MODE_ICONS: Record<DrawMode, string> = {
 
 export interface DrawToolbarProps {
   className?: string;
-  /**
-   * Tools to show; order in the array determines button order. Defaults to
-   * all five modes with default labels when omitted.
-   */
   tools?: readonly DrawTool[];
+  onStartDrawing?: (mode: DrawMode, category?: string) => void;
+  onSelectMode?: () => void;
 }
 
 export function DrawToolbar({
   className = 'draw-toolbar',
   tools = DEFAULT_DRAW_TOOLS,
+  onStartDrawing,
+  onSelectMode,
 }: DrawToolbarProps) {
-  const { state, startDrawing, selectMode } = useDraw();
+  const [activeMode, setActiveMode] = useState<DrawMode>('select');
+  const [activeLabel, setActiveLabel] = useState<string>('Select');
 
   const isActive = (mode: DrawMode, label: string): boolean => {
-    if (mode === 'select') return state.drawMode === 'select';
-    // pendingCategory distinguishes two tools sharing a mode.
-    return state.drawMode === mode && state.pendingCategory === label;
+    if (mode === 'select') return activeMode === 'select';
+    return activeMode === mode && activeLabel === label;
   };
 
   const handle = (mode: DrawMode, label: string) => {
-    if (mode === 'select') selectMode();
-    else startDrawing(mode, label);
+    setActiveMode(mode);
+    setActiveLabel(label);
+    if (mode === 'select') {
+      onSelectMode?.();
+    } else {
+      onStartDrawing?.(mode, label);
+    }
   };
 
   let separatorPlaced = false;
@@ -67,8 +59,6 @@ export function DrawToolbar({
   return (
     <div className={className}>
       {tools.map((t, i) => {
-        // A separator before the first non-Select tool splits the toolbar into
-        // "navigation" and "drawing" groups — mirrors a freehand's compass.
         const showSep = !separatorPlaced && t.mode !== 'select';
         if (showSep) separatorPlaced = true;
         return (

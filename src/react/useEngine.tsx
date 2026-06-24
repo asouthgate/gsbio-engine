@@ -1,9 +1,4 @@
 /* eslint-disable react-refresh/only-export-components */
-/** 
- * See useSyncExternalStore; the engineListener is used to broadcast state changes.
- * This will propagate the engine state object to relevant components.
- * 
- */
 import {
   createContext,
   useContext,
@@ -14,8 +9,7 @@ import {
 import {
   createSimulationEngine,
   type CircleGeometry,
-  type DrawAction,
-  type DrawMode,
+  type FeatureAction,
   type EngineState,
   type LngLat,
   type RunSummary,
@@ -43,18 +37,15 @@ export function useEngine(): SimulationEngine {
   return engine;
 }
 
-/** Subscribe to the engine's combined snapshot. Re-renders on every change. */
 export function useEngineState(): EngineState {
   const engine = useEngine();
   return useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
 }
 
 
-export interface DrawHook {
-  state: EngineState['draw'];
-  dispatch: (action: DrawAction) => void;
-  startDrawing: (mode: DrawMode, category?: string) => void;
-  selectMode: () => void;
+export interface FeatureHook {
+  state: EngineState['features'];
+  dispatch: (action: FeatureAction) => void;
   removeFeature: (id: string) => void;
   toggleVisibility: (id: string) => void;
   updatePointPosition: (id: string, lngLat: LngLat) => void;
@@ -63,20 +54,18 @@ export interface DrawHook {
   updatePolygonRing: (id: string, ring: LngLat[]) => void;
 }
 
-export function useDraw(): DrawHook {
+export function useFeatures(): FeatureHook {
   const engine = useEngine();
-  const { draw } = useEngineState();
+  const { features } = useEngineState();
   return {
-    state: draw,
-    dispatch: engine.dispatchDraw,
-    startDrawing: engine.drawing.startDrawing,
-    selectMode: engine.drawing.selectMode,
-    removeFeature: engine.drawing.removeFeature,
-    toggleVisibility: engine.drawing.toggleVisibility,
-    updatePointPosition: engine.drawing.updatePointPosition,
-    updateCircle: engine.drawing.updateCircle,
-    updateLineStringCoords: engine.drawing.updateLineStringCoords,
-    updatePolygonRing: engine.drawing.updatePolygonRing,
+    state: features,
+    dispatch: engine.dispatchFeature,
+    removeFeature: engine.features.removeFeature,
+    toggleVisibility: engine.features.toggleVisibility,
+    updatePointPosition: engine.features.updatePointPosition,
+    updateCircle: engine.features.updateCircle,
+    updateLineStringCoords: engine.features.updateLineStringCoords,
+    updatePolygonRing: engine.features.updatePolygonRing,
   };
 }
 

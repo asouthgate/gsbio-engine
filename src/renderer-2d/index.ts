@@ -6,6 +6,7 @@ export {
   type FeatureToolStyle,
   type FeatureStyleConfig,
   type ResultPaint,
+  type DrawMode,
   DEFAULT_FEATURE_STYLES,
   DEFAULT_RESULT_PAINT,
 } from './TerraDraw2DRenderer';

@@ -5,8 +5,8 @@
  * renderer-agnostic `Canvas` host.
  */
 
-export { EngineProvider, useEngine, useEngineState, useDraw, useModel, useRun, useResults } from './useEngine';
-export type { EngineProviderProps, DrawHook, ModelHook, RunHook, ResultsHook } from './useEngine';
+export { EngineProvider, useEngine, useEngineState, useFeatures, useModel, useRun, useResults } from './useEngine';
+export type { EngineProviderProps, FeatureHook, ModelHook, RunHook, ResultsHook } from './useEngine';
 export { AppProvider } from './AppProvider';
 export type { AppProviderProps } from './AppProvider';
 export { Canvas } from './Canvas';
