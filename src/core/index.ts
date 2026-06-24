@@ -8,10 +8,8 @@
 
 export * from './types';
 export * from './spatial';
-export * from './models/registry';
 export * from './models/helloWorld';
 export * from './state/drawSlice';
-export * from './state/modelSlice';
 export * from './state/runSlice';
 export * from './mapStyles';
 export * from './stubExecutor';

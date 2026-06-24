@@ -6,7 +6,6 @@ import type {
 } from './types';
 import { extractResultLayers } from './types';
 import type { ModelAction } from './engine.modelRegistry';
-import { registerModel as registerModelIntoRegistry } from './models/registry';
 import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
 // import { modelReducer, initialModelState, type ModelAction } from './state/modelSlice';
 import { helloWorldModel } from './models/helloWorld';
@@ -60,7 +59,7 @@ export class SimulationEngine {
   dispatchRun = (action: RunAction): void => this.patch({ run: runReducer(this._state.run, action) });
 
   setMapActions(actions: MapActions): void { this.mapActions = actions; }
-  registerModel = (def: ModelDef): void => { registerModelIntoRegistry(def); };
+  registerModel = (def: ModelDef): void => { this.models.register(def); };
   registerExecutor = (modelId: string, executor: Executor): void => { this._executors.set(modelId, executor); };
   getExecutor = (modelId: string): Executor | undefined => this._executors.get(modelId);
   findRun = (runId: string): RunRecord | undefined => {
