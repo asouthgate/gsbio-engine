@@ -6,7 +6,7 @@
  * `CoordinateService` (or supplies its own projection function) to translate
  * between geographic coordinates and screen pixels.
  *
- * Pure spatial queries (`pointInPolygon`, `polygonArea`, `haversineDistance`)
+ * Spatial queries (`pointInPolygon`, `haversineDistance`)
  * are framework-agnostic and run anywhere — Node, Web Worker, or browser.
  */
 
@@ -23,15 +23,10 @@ export interface Pixel {
 export type ProjectFn = (lngLat: LngLat) => Pixel;
 export type UnprojectFn = (pixel: Pixel) => LngLat;
 
-/** Mean Earth radius, WGS84, in metres. */
+// Mean Earth radius, WGS84, in metres.
 export const WGS84_EARTH_RADIUS_M = 6378137;
 
-/**
- * Maximum decimal places for generated coordinates. Sub-millimetre precision
- * at the equator (~0.1 mm). Renderers (e.g. TerraDraw) reject coordinates with
- * more decimal places than their configured `coordinatePrecision`; 9 is the
- * common default and ample for any geographic application.
- */
+// Standard default precision for renderers
 export const COORDINATE_PRECISION = 9;
 
 function roundLngLat(p: LngLat): LngLat {
@@ -63,8 +58,7 @@ export function haversineDistanceMeters(a: LngLat, b: LngLat): number {
 }
 
 /**
- * Ray-casting point-in-polygon. `ring` is a closed or open list of lng/lat
- * points forming a single ring (no holes — wrap multiple rings if needed).
+ * Check if a point is inside a polygon using ray-casting.
  */
 export function pointInPolygon(point: LngLat, ring: LngLat[]): boolean {
   if (ring.length < 3) return false;
@@ -80,18 +74,6 @@ export function pointInPolygon(point: LngLat, ring: LngLat[]): boolean {
     if (intersects) inside = !inside;
   }
   return inside;
-}
-
-/**
- * Shoelace polygon area — for a geographic ring this is in degree² units.
- * For metre-accurate areas project the ring to a planar system first.
- */
-export function polygonArea(ring: LngLat[]): number {
-  let area = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    area += ring[i].lng * ring[j].lat - ring[j].lng * ring[i].lat;
-  }
-  return Math.abs(area) / 2;
 }
 
 /**
@@ -142,11 +124,6 @@ export function circleToPolygon(
     geometry: { type: 'Polygon', coordinates: [ring] },
     properties: {},
   };
-}
-
-/** Point-in-circle test using great-circle distance against the radius. */
-export function pointInCircle(point: LngLat, center: LngLat, radiusMeters: number): boolean {
-  return haversineDistanceMeters(point, center) <= radiusMeters;
 }
 
 /**
@@ -230,8 +207,7 @@ export function polygonRingToGeoJSONFeature(ring: LngLat[]): GeoJSON.Feature {
 /**
  * CoordinateService wraps a projection function pair (provided by the active
  * renderer / map) so the render side and the analysis side share one source of
- * truth for coordinate translation. The service is intentionally not bound to
- * maplibre — `../renderer-2d` supplies the projection functions.
+ * truth for coordinate translation.
  */
 export class CoordinateService {
   constructor(
