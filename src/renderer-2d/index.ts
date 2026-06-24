@@ -1,6 +1,6 @@
 export {
-  TerraDraw2DRenderer,
   createTerraDraw2DRenderer,
+  TerraDraw2DRenderer,
   type TerraDraw2DOptions,
   type ShapePaint,
   type FeatureToolStyle,

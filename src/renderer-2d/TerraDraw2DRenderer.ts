@@ -1,7 +1,3 @@
-// TODO: this file is fairly radioactive, due a refactor
-
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   TerraDraw,
   TerraDrawSelectMode,
@@ -14,163 +10,35 @@ import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter';
 import {
   averageRadiusMeters,
   centroid,
-  DrawnFeature,
+  LngLat,
+  type DrawnFeature,
   type DrawMode,
-  type LngLat,
   type Renderer,
   type SimulationEngine,
 } from '../core';
+import { MapManager } from './mapManager';
 
-/** Composite terra-draw mode name for a (drawMode, category) tool. */
-function compositeModeName(drawMode: DrawMode, category: string): string {
-  return `${drawMode}__${category}`;
-}
+export interface ShapePaint { fillColor?: string; fillOpacity?: number; outlineColor?: string; outlineWidth?: number; pointColor?: string; pointOutlineColor?: string; pointRadius?: number; lineColor?: string; lineWidth?: number; }
+export interface FeatureToolStyle { mode: DrawMode; category: string; style: ShapePaint; }
+export interface FeatureStyleConfig { point?: ShapePaint; linestring?: ShapePaint; polygon?: ShapePaint; circle?: ShapePaint; tools?: FeatureToolStyle[]; }
+export interface ResultPaint { fillColor?: string; fillOpacity?: number; lineColor?: string; lineWidth?: number; circleColor?: string; circleRadius?: number; }
+export interface TerraDraw2DOptions { style: any; center?: [number, number]; zoom?: number; featureStyles?: FeatureStyleConfig; resultStyles?: ResultPaint; }
 
-/** Shallow merge of a base paint with an override (override wins). */
-function mergePaint(base: ShapePaint, override: ShapePaint | undefined): ShapePaint {
-  return override ? { ...base, ...override } : { ...base };
-}
-
-/** Map a `ShapePaint` to terra-draw point-mode `styles` keys. */
-function toPointStyles(p: ShapePaint): Record<string, unknown> {
-  const s: Record<string, unknown> = {};
-  const color = p.pointColor ?? p.fillColor;
-  if (color) s.pointColor = color;
-  if (p.pointRadius != null) s.pointWidth = p.pointRadius;
-  const outline = p.pointOutlineColor ?? p.outlineColor;
-  if (outline) s.pointOutlineColor = outline;
-  return s;
-}
-
-/** Map a `ShapePaint` to terra-draw linestring-mode `styles` keys. */
-function toLineStringStyles(p: ShapePaint): Record<string, unknown> {
-  const s: Record<string, unknown> = {};
-  const color = p.lineColor ?? p.outlineColor;
-  if (color) s.lineStringColor = color;
-  const width = p.lineWidth ?? p.outlineWidth;
-  if (width != null) s.lineStringWidth = width;
-  return s;
-}
-
-/** Map a `ShapePaint` to terra-draw polygon/circle-mode `styles` keys. */
-function toPolygonStyles(p: ShapePaint): Record<string, unknown> {
-  const s: Record<string, unknown> = {};
-  if (p.fillColor) s.fillColor = p.fillColor;
-  if (p.fillOpacity != null) s.fillOpacity = p.fillOpacity;
-  if (p.outlineColor) s.outlineColor = p.outlineColor;
-  if (p.outlineWidth != null) s.outlineWidth = p.outlineWidth;
-  return s;
-}
-
-/**
- * Renderer-local paint description for a drawn feature. Translate-free of any
- * maplibre/terra-draw specifics so apps can declare styles without importing
- * those packages. Rendered as a deep merge over `DEFAULT_FEATURE_STYLES`.
- */
-export interface ShapePaint {
-  fillColor?: string;
-  fillOpacity?: number;
-  outlineColor?: string;
-  outlineWidth?: number;
-  /** Point fill. Aliases `fillColor` when omitted for points. */
-  pointColor?: string;
-  pointOutlineColor?: string;
-  pointRadius?: number;
-  /** Linestring outline. Aliases `outlineColor` for lines. */
-  lineColor?: string;
-  lineWidth?: number;
-}
-
-/** A tool whose category gets a distinct on-map style. */
-export interface FeatureToolStyle {
-  mode: DrawMode;
-  /** The `category` value the engine stamps onto features drawn with the tool. */
-  category: string;
-  style: ShapePaint;
-}
-
-export interface FeatureStyleConfig {
-  /** Per geometry-kind base styles (deep-merged over renderer defaults). */
-  point?: ShapePaint;
-  linestring?: ShapePaint;
-  polygon?: ShapePaint;
-  circle?: ShapePaint;
-  /** Optional per-category tool styles → composite terra-draw modes. */
-  tools?: FeatureToolStyle[];
-}
-
-/** Paint for result (model-output) layers. App overrides the renderer defaults. */
-export interface ResultPaint {
-  fillColor?: string;
-  fillOpacity?: number;
-  lineColor?: string;
-  lineWidth?: number;
-  circleColor?: string;
-  circleRadius?: number;
-}
-
-export interface TerraDraw2DOptions {
-  /** MapLibre style spec (sources + layers). */
-  style: maplibregl.StyleSpecification;
-  /** Initial map center [lng, lat]. */
-  center?: [number, number];
-  /** Initial zoom level. */
-  zoom?: number;
-  /**
-   * Drawn-feature paint config. Deep-merged over `DEFAULT_FEATURE_STYLES`,
-   * the engine-provided base. Apps override per-kind defaults and/or declare
-   * per-category `tools` for distinct on-map styles.
-   */
-  featureStyles?: FeatureStyleConfig;
-  /**
-   * Result (model-output) layer paint. Deep-merged over
-   * `DEFAULT_RESULT_PAINT`.
-   */
-  resultStyles?: ResultPaint;
-}
-
-/**
- * Base drawn-feature palette — teal, matching the shipped app CSS. Apps
- * override via `TerraDraw2DOptions.featureStyles`. All paint the engine ships
- * lives here; `../core` stays headless.
- */
 export const DEFAULT_FEATURE_STYLES: Record<DrawMode, ShapePaint> = {
   select: {},
-  point: {
-    pointColor: '#2dd4bf',
-    pointOutlineColor: '#0a0e10',
-    pointRadius: 6,
-  },
-  linestring: {
-    lineColor: '#2dd4bf',
-    lineWidth: 2,
-  },
-  polygon: {
-    fillColor: '#2dd4bf',
-    fillOpacity: 0.18,
-    outlineColor: '#5eead4',
-    outlineWidth: 2,
-  },
-  circle: {
-    fillColor: '#2dd4bf',
-    fillOpacity: 0.12,
-    outlineColor: '#5eead4',
-    outlineWidth: 2,
-  },
+  point: { pointColor: '#2dd4bf', pointOutlineColor: '#222f35', pointRadius: 6 },
+  linestring: { lineColor: '#2dd4bf', lineWidth: 2 },
+  polygon: { fillColor: '#2dd4bf', fillOpacity: 0.18, outlineColor: '#5eead4', outlineWidth: 2 },
+  circle: { fillColor: '#2dd4bf', fillOpacity: 0.12, outlineColor: '#5eead4', outlineWidth: 2 },
 };
+export const DEFAULT_RESULT_PAINT: Required<ResultPaint> = { fillColor: '#E69F00', fillOpacity: 0.25, lineColor: '#E69F00', lineWidth: 2, circleColor: '#E69F00', circleRadius: 5 };
 
-/**
- * Base result-layer palette — Okabe-Ito amber `#E69F00`, colourblind-safe and
- * maximally distinct from the teal drawn-feature palette.
- */
-export const DEFAULT_RESULT_PAINT: Required<ResultPaint> = {
-  fillColor: '#E69F00',
-  fillOpacity: 0.25,
-  lineColor: '#E69F00',
-  lineWidth: 2,
-  circleColor: '#E69F00',
-  circleRadius: 5,
-};
+function compositeModeName(drawMode: DrawMode, category: string): string { return `${drawMode}__${category}`; }
+function mergePaint(base: ShapePaint, override: ShapePaint | undefined): ShapePaint { return override ? { ...base, ...override } : { ...base }; }
+function toPointStyles(p: ShapePaint): Record<string, unknown> { const s: any = {}; if (p.pointColor ?? p.fillColor) s.pointColor = p.pointColor ?? p.fillColor; if (p.pointRadius != null) s.pointWidth = p.pointRadius; if (p.pointOutlineColor ?? p.outlineColor) s.pointOutlineColor = p.pointOutlineColor ?? p.outlineColor; return s; }
+function toLineStringStyles(p: ShapePaint): Record<string, unknown> { const s: any = {}; if (p.lineColor ?? p.outlineColor) s.lineStringColor = p.lineColor ?? p.outlineColor; if (p.lineWidth ?? p.outlineWidth) s.lineStringWidth = p.lineWidth ?? p.outlineWidth; return s; }
+function toPolygonStyles(p: ShapePaint): Record<string, unknown> { const s: any = {}; if (p.fillColor) s.fillColor = p.fillColor; if (p.fillOpacity != null) s.fillOpacity = p.fillOpacity; if (p.outlineColor) s.outlineColor = p.outlineColor; if (p.outlineWidth != null) s.outlineWidth = p.outlineWidth; return s; }
+
 
 interface TerraDrawLike {
   start(): void;
@@ -183,39 +51,12 @@ interface TerraDrawLike {
   on(event: 'change', cb: (ids: (string | number)[]) => void): void;
 }
 
-/**
- * 2D renderer plugin backed by MapLibre + TerraDraw.
- *
- * `../react`'s `Canvas` host instantiates this via the demo app and
- * passes an `engine` (a `SimulationEngine`) to `mount`. The renderer wires
- * its TerraDraw lifecycle against the engine's headless state tree: incoming
- * draw/finish/change events dispatch into the engine; engine draw-mode changes
- * are reflected back into TerraDraw via a subscription.
- */
 export class TerraDraw2DRenderer implements Renderer {
-  private map: maplibregl.Map | null = null;
+  private mapManager!: MapManager;
   private draw: TerraDrawLike | null = null;
-  private disposed = false;
   private unsubscribeEngine: (() => void) | null = null;
-  /** Composite `${runId}__${layerId}` → maplibre layer ids (for teardown on
-   *  `removeResultLayer(runId, layerId)`). One entry per addressable result
-   *  layer; a run with N image layers owns N disjoint sources+layers. */
-  private readonly resultLayers = new Map<string, string[]>();
-
-  /** Resolved per-kind drawn-feature paints (app override merged over base). */
   private readonly featurePaints: Record<DrawMode, ShapePaint>;
-  /** Composite modes registered for declared `tools`, keyed by mode name. */
   private readonly compositeModes = new Map<string, { drawMode: DrawMode; category: string; style: ShapePaint }>();
-  /** Resolved result-layer paint (app override merged over base). */
-  private readonly resultPaint: Required<ResultPaint>;
-
-  /** Stable maplibre source id for a single result layer. */
-  private sourceId(runId: string, layerId: string): string {
-    return `gsbio-result-${runId}__${layerId}`;
-  }
-  private layerKey(runId: string, layerId: string): string {
-    return `${runId}__${layerId}`;
-  }
 
   constructor(private readonly options: TerraDraw2DOptions) {
     const fs = options.featureStyles ?? {};
@@ -226,10 +67,6 @@ export class TerraDraw2DRenderer implements Renderer {
       polygon: mergePaint(DEFAULT_FEATURE_STYLES.polygon, fs.polygon),
       circle: mergePaint(DEFAULT_FEATURE_STYLES.circle, fs.circle),
     };
-    this.resultPaint = { ...DEFAULT_RESULT_PAINT, ...options.resultStyles };
-    // Composite per-(mode, category) modes for declared tools. Each gets its
-    // own terra-draw mode instance keyed by `${mode}__${category}`; the engine
-    // subscription routes `setMode` here when `pendingCategory` is set.
     for (const t of fs.tools ?? []) {
       if (t.mode === 'select') continue;
       const name = compositeModeName(t.mode, t.category);
@@ -237,39 +74,29 @@ export class TerraDraw2DRenderer implements Renderer {
     }
   }
 
+  private updateCircleState(feature: GeoJSON.Feature, id: string): any {
+      if (feature.geometry.type !== 'Polygon') return null;
+      const geom = feature.geometry as GeoJSON.Polygon;
+      const ring = geom.coordinates[0].map(([lng, lat]) => ({ lng, lat }));
+      const props = (feature.properties ?? {}) as any;
+      const radiusMeters = (props.radiusKilometers ? Number(props.radiusKilometers) : 0) * 1000;
+      return { center: centroid(ring), radiusMeters };
+  }
+
   async mount(container: HTMLElement, engineInstance: unknown): Promise<void> {
     const engine = engineInstance as SimulationEngine;
-    // mount() is re-entrant: a prior mount (e.g. React 19 StrictMode dev
-    // double-invoke) may have left a live map on this instance. Tear it down
-    // synchronously before starting a fresh one so there is never more than
-    // one maplibre map / TerraDraw on the container.
-    this.unmount();
-    this.disposed = false;
-    const map = new maplibregl.Map({
-      container,
-      style: this.options.style,
-      center: this.options.center ?? [0, 0],
-      zoom: this.options.zoom ?? 2,
-    });
-    this.map = map;
-
-    await new Promise<void>((resolve) => {
-      map.on('load', () => resolve());
-    });
-
-    // If a cleanup / second mount superseded this one while we were awaiting
-    // 'load', abort: this.map would now belong to the newer mount (or be
-    // null). Remove this orphan map but leave the current one alone.
-    if (this.map !== map || this.disposed) {
-      map.remove();
-      if (this.map === map) this.map = null;
-      return;
-    }
+    this.mapManager = new MapManager(this.options, { ...DEFAULT_RESULT_PAINT, ...this.options.resultStyles });
+    const map = await this.mapManager.mount(container);
 
     const adapter = new TerraDrawMapLibreGLAdapter({ map, coordinatePrecision: 9 });
-    // Base draw modes carry the resolved per-kind styles. Composite
-    // per-category modes (one terra-draw instance each, keyed by
-    // `${mode}__${category}`) carry the per-tool style merged over the base.
+    // const compositeModeInstances = Array.from(this.compositeModes.keys()).map((name) => {
+    //   const entry = this.compositeModes.get(name)!;
+    //   const paint = mergePaint(this.featurePaints[entry.drawMode], entry.style);
+    //   if (entry.drawMode === 'point') return new TerraDrawPointMode({ modeName: name, styles: toPointStyles(paint) });
+    //   if (entry.drawMode === 'linestring') return new TerraDrawLineStringMode({ modeName: name, styles: toLineStringStyles(paint) });
+    //   return new TerraDrawPolygonMode({ modeName: name, styles: toPolygonStyles(paint) });
+    // });
+
     const makeComposite = (drawMode: DrawMode, name: string): never => {
       const entry = this.compositeModes.get(name);
       const paint = mergePaint(this.featurePaints[drawMode], entry?.style);
@@ -289,6 +116,7 @@ export class TerraDraw2DRenderer implements Renderer {
     const compositeModeInstances = Array.from(this.compositeModes.keys()).map(
       (name) => makeComposite(this.compositeModes.get(name)!.drawMode, name),
     );
+
     const draw = new TerraDraw({
       adapter,
       modes: [
@@ -323,9 +151,8 @@ export class TerraDraw2DRenderer implements Renderer {
     }) as unknown as TerraDrawLike;
 
     draw.start();
-    this.draw = draw;
+    this.draw = draw; 
 
-    // Bridge imperative map actions from the engine to TerraDraw.
     engine.setMapActions({
       removeFeatureFromMap: (id: string) => {
         try { draw.removeFeatures([id]); } catch { /* feature may not exist */ }
@@ -345,115 +172,10 @@ export class TerraDraw2DRenderer implements Renderer {
           draw.addFeatures([geojson as never]);
         } catch { /* ignore */ }
       },
-      // Result layer port: render a `MapLayerEnvelope` (GeoJSON / tiles /
-      // image) under a stable per-(runId, layerId) source id. A run that
-      // yields N image envelopes hence owns N disjoint sources and layers;
-      // `removeResultLayer(runId, layerId)` tears down exactly one. Re-adding
-      // the same pair removes first (replace semantics).
-      addResultLayer: (runId, layerId, envelope) => {
-        const m = this.map;
-        if (!m) return;
-        const srcId = this.sourceId(runId, layerId);
-        const key = this.layerKey(runId, layerId);
-        // Re-entrancy-safe teardown for this specific pair only (e.g. user
-        // toggles show → hide → show). Sibling layers under the same run are
-        // untouched.
-        try {
-          const prev = this.resultLayers.get(key) ?? [];
-          for (const lid of prev) {
-            try { m.removeLayer(lid); } catch { /* not added yet */ }
-          }
-          m.removeSource(srcId);
-        } catch { /* ignore */ }
-        const layerIds: string[] = [];
-        const rp = this.resultPaint;
-        if (envelope.kind === 'geojson') {
-          m.addSource(srcId, { type: 'geojson', data: envelope.data as never });
-          layerIds.push(`${srcId}-fill`, `${srcId}-line`, `${srcId}-circle`);
-          m.addLayer({
-            id: `${srcId}-fill`,
-            type: 'fill',
-            source: srcId,
-            filter: ['==', ['geometry-type'], 'Polygon'],
-            paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity },
-          });
-          m.addLayer({
-            id: `${srcId}-line`,
-            type: 'line',
-            source: srcId,
-            filter: ['==', ['geometry-type'], 'LineString'],
-            paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth },
-          });
-          m.addLayer({
-            id: `${srcId}-circle`,
-            type: 'circle',
-            source: srcId,
-            filter: ['==', ['geometry-type'], 'Point'],
-            paint: { 'circle-radius': rp.circleRadius, 'circle-color': rp.circleColor },
-          });
-        } else if (envelope.kind === 'image') {
-          m.addSource(srcId, {
-            type: 'image',
-            url: envelope.url,
-            coordinates: [
-              [envelope.bounds[0], envelope.bounds[3]],
-              [envelope.bounds[2], envelope.bounds[3]],
-              [envelope.bounds[2], envelope.bounds[1]],
-              [envelope.bounds[0], envelope.bounds[1]],
-            ] as never,
-          });
-          layerIds.push(`${srcId}-raster`);
-          m.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId });
-        } else {
-          m.addSource(srcId, {
-            type: envelope.type,
-            tiles: [envelope.url],
-            tileSize: 256,
-          } as never);
-          if (envelope.type === 'raster') {
-            layerIds.push(`${srcId}-raster`);
-            m.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId });
-          } else {
-            const sourceLayer = envelope.sourceLayer;
-            const rp = this.resultPaint;
-            layerIds.push(`${srcId}-line`, `${srcId}-fill`);
-            m.addLayer({
-              id: `${srcId}-line`,
-              type: 'line',
-              source: srcId,
-              'source-layer': sourceLayer,
-              paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth },
-            });
-            m.addLayer({
-              id: `${srcId}-fill`,
-              type: 'fill',
-              source: srcId,
-              'source-layer': sourceLayer,
-              paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity },
-            });
-          }
-        }
-        this.resultLayers.set(key, layerIds);
-      },
-      removeResultLayer: (runId: string, layerId: string) => {
-        const m = this.map;
-        if (!m) return;
-        const key = this.layerKey(runId, layerId);
-        const layerIds = this.resultLayers.get(key);
-        if (layerIds) {
-          for (const id of layerIds) {
-            try { m.removeLayer(id); } catch { /* ignore */ }
-          }
-        }
-        try { m.removeSource(this.sourceId(runId, layerId)); } catch { /* ignore */ }
-        this.resultLayers.delete(key);
-      },
+      addResultLayer: (rid, lid, env) => this.mapManager.addResultLayer(rid, lid, env),
+      removeResultLayer: (rid, lid) => this.mapManager.removeResultLayer(rid, lid),
     });
 
-    // Reflect engine draw-mode (+ pending category) changes into TerraDraw.
-    // When a per-category composite mode is registered for the current
-    // (drawMode, pendingCategory) pair we route to it so the tool's own style
-    // paints the in-progress shape; otherwise the base mode is used.
     const resolveModeName = (mode: DrawMode, category: string): string => {
       if (mode === 'select') return 'select';
       const composite = category ? compositeModeName(mode, category) : '';
@@ -562,13 +284,10 @@ export class TerraDraw2DRenderer implements Renderer {
   }
 
   unmount(): void {
-    this.disposed = true;
     this.unsubscribeEngine?.();
-    this.unsubscribeEngine = null;
-    try { this.draw?.stop(); } catch { /* ignore */ }
+    this.draw?.stop();
     this.draw = null;
-    try { this.map?.remove(); } catch { /* ignore */ }
-    this.map = null;
+    this.mapManager.unmount();
   }
 }
 
