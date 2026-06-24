@@ -1,8 +1,6 @@
 import type { ModelDef } from '../types';
 
-/** Default stub model: pure schema. The engine pipeline end-to-end is
- *  exercised via `noopExecutor` (see `./registry.ts`); real models are bound
- *  to their own `Executor` via `engine.registerExecutor`. */
+/** Just a hello world example model. */
 export const helloWorldModel: ModelDef = {
   id: 'hello-world',
   name: 'Hello World',

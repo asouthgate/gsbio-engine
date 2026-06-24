@@ -1,4 +1,5 @@
-import { ensureDefaultModels, getModel, defaultParamsFor } from '../models/registry';
+import { getModel, defaultParamsFor, registerModel } from '../models/registry';
+import { helloWorldModel } from '../models/helloWorld';
 import type { ModelParams } from '../types';
 
 export interface ModelState {
@@ -11,9 +12,7 @@ export type ModelAction =
   | { type: 'SET_PARAM'; payload: { key: string; value: number } }
   | { type: 'SET_PARAMS'; payload: ModelParams };
 
-// Built-in models must be registered before computing the initial state so
-// `listModels()` returns at least one entry.
-ensureDefaultModels();
+registerModel(helloWorldModel)
 
 const initialModelId = getModel('hello-world')?.id ?? '';
 const initialModel = getModel(initialModelId);

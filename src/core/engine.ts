@@ -5,7 +5,7 @@ import type {
   RunLogLevel, RunProgress, RunRecord
 } from './types';
 import { extractResultLayers } from './types';
-import { ensureDefaultModels, ensureDefaultExecutors, registerModel as registerModelIntoRegistry } from './models/registry';
+import { registerModel as registerModelIntoRegistry } from './models/registry';
 import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
 import { modelReducer, initialModelState, type ModelAction } from './state/modelSlice';
 import { runReducer, initialRunState, type RunAction } from './state/runSlice';
@@ -36,8 +36,6 @@ export class SimulationEngine {
       : `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   constructor() {
-    ensureDefaultModels();
-    ensureDefaultExecutors(this._executors);
     this._state = {
       draw: initialDrawState,
       model: initialModelState,
@@ -45,7 +43,6 @@ export class SimulationEngine {
     };
   }
 
-  /* -------------------------- Core State / Dispatches -------------------------- */
   subscribe = (listener: EngineListener): (() => void) => {
     this._listeners.add(listener);
     return () => this._listeners.delete(listener);
@@ -68,7 +65,6 @@ export class SimulationEngine {
     return c?.runId === runId ? c : this._state.run.history.find((r) => r.runId === runId);
   };
 
-  /* ----------------------------- Run pipeline --------------------------- */
   run = async (): Promise<void> => {
     if (this._abort) {
       this.cancelRun();
