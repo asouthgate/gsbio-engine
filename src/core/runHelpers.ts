@@ -5,7 +5,7 @@ import type {
   RunLogEntry,
   ModelParams,
 } from './types';
-import type { RunState } from './engine.runController';
+import type { RunState } from './engine.runController.types';
 
 export function emptyRunRecord(runId: string, modelId: string, params: ModelParams, startedAt: number): RunRecord {
   return {

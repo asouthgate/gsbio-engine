@@ -18,6 +18,11 @@ export interface DataFeature {
   data?: Record<string, unknown>;
 }
 
+export interface FeatureState {
+  features: DataFeature[];
+  selectedFeatureId: string | null;
+}
+
 export interface FeatureMapActions {
   removeFeatureFromMap: (id: string) => void;
   setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature) => void;

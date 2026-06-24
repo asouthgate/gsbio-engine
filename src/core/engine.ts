@@ -24,7 +24,7 @@ import {
   allSummaries as computeAllSummaries,
 } from './runHelpers';
 import type { EngineState, EngineListener, MapActions } from './engine.types';
-import type { RunState } from './engine.runController';
+import type { RunState } from './engine.runController.types';
 export type { EngineState, EngineListener, MapActions };
 
 export class SimulationEngine {

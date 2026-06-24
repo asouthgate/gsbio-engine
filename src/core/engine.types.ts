@@ -1,8 +1,6 @@
-import type { FeatureMapActions } from './engine.featureStore.types';
-import type { ResultLayerActions } from './engine.runController.types';
-import type { FeatureState } from './engine.featureStore';
+import type { FeatureMapActions, FeatureState } from './engine.feature.types';
+import type { ResultLayerActions, RunState } from './engine.runController.types';
 import type { ModelState } from './engine.modelRegistry';
-import type { RunState } from './engine.runController';
 
 export type MapActions = FeatureMapActions & ResultLayerActions;
 

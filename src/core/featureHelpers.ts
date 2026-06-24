@@ -1,11 +1,4 @@
-import type { DataFeature, CircleGeometry } from './types';
-import {
-  circleToPolygon,
-  lineStringToGeoJSONFeature,
-  polygonRingToGeoJSONFeature,
-  COORDINATE_PRECISION,
-  type LngLat,
-} from './spatial';
+import type { DataFeature } from './types';
 
 export function replaceGeometry(feature: DataFeature, geometry: GeoJSON.Geometry): GeoJSON.Feature {
   return { ...feature.geojson, geometry };

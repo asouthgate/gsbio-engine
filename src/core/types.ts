@@ -1,4 +1,4 @@
-export * from './engine.featureStore.types';
+export * from './engine.feature.types';
 export * from './engine.runController.types';
 export * from './engine.modelRegistry.types';
 export * from './spatial.types';

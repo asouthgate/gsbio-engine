@@ -1,6 +1,11 @@
-import type { DataFeature } from './engine.featureStore.types';
+import type { DataFeature } from './engine.feature.types';
 import type { ModelParams } from './engine.modelRegistry.types';
 import type { MapLayerEnvelope } from './spatial.types';
+
+export interface RunState {
+  current: RunRecord | null;
+  history: RunRecord[];
+}
 
 export type RunLogLevel = 'info' | 'warning' | 'error';
 
