@@ -1,4 +1,3 @@
-// src/core/data/SourceRegistry.ts
 import type { DataSourceDef } from './types';
 
 export class SourceRegistry {

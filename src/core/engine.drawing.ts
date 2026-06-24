@@ -1,4 +1,3 @@
-// simulation-engine.drawing.ts
 import type { SimulationEngine } from './engine';
 import type { DrawMode, CircleGeometry } from './types';
 import { 

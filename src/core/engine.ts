@@ -1,4 +1,3 @@
-// simulation-engine.ts
 import { EngineDrawingActions } from './engine.drawing';
 import { EngineResultActions } from './engine.results';
 import type { 
