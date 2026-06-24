@@ -146,13 +146,13 @@ export function useResults(): ResultsHook {
   return {
     summaries,
     current: summaries.length > 0 ? summaries[0]! : null,
-    showResult: engine.results.showResult,
-    hideResult: engine.results.hideResult,
-    toggleResult: engine.results.toggleResult,
-    showResultLayer: engine.results.showResultLayer,
-    hideResultLayer: engine.results.hideResultLayer,
-    toggleResultLayer: engine.results.toggleResultLayer,
-    clearResult: engine.results.clearResult,
-    clearAll: engine.results.clearAllResults,
+    showResult: engine.runs.showResult,
+    hideResult: engine.runs.hideResult,
+    toggleResult: engine.runs.toggleResult,
+    showResultLayer: engine.runs.showResultLayer,
+    hideResultLayer: engine.runs.hideResultLayer,
+    toggleResultLayer: engine.runs.toggleResultLayer,
+    clearResult: engine.runs.clearResult,
+    clearAll: engine.runs.clearAllResults,
   };
 }

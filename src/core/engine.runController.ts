@@ -1,19 +1,18 @@
-// src/core/state/EngineRunController.ts
+import type { SimulationEngine } from './engine';
 import {
   extractResultLayers,
   type ModelParams,
   type RunLogEntry,
   type RunProgress,
   type RunRecord,
-  type RunResult,
   type RunStatus,
   type RunSummary,
+  type RunResult,
+  type MapLayerEnvelope
 } from './types';
 
 export interface RunState {
-  /** The active-or-most-recent run. `null` only before the first run ever. */
   current: RunRecord | null;
-  /** Past runs, newest-first. Never auto-evicted. */
   history: RunRecord[];
 }
 
@@ -34,7 +33,9 @@ export type RunAction =
   | { type: 'CLEAR_ALL_RESULTS' };
 
 export class EngineRunController {
-  /** Baseline empty state layout */
+  // Give it the engine back-reference link for side-effects and snapshot access
+  constructor(private engine: SimulationEngine) {}
+
   getInitialState(): RunState {
     return {
       current: null,
@@ -52,37 +53,21 @@ export class EngineRunController {
         const moved = this.pushCurrentToHistory(state);
         return {
           ...moved,
-          current: this.emptyRecord(
-            action.runId,
-            action.modelId,
-            action.params,
-            action.startedAt,
-          ),
+          current: this.emptyRecord(action.runId, action.modelId, action.params, action.startedAt),
         };
       }
       case 'PREPROCESS_START':
         if (!state.current) return state;
-        return {
-          ...state,
-          current: this.setStatus(state.current, 'preprocessing'),
-        };
+        return { ...state, current: this.setStatus(state.current, 'preprocessing') };
       case 'SUBMIT_START':
         if (!state.current) return state;
-        return {
-          ...state,
-          current: this.setStatus(state.current, 'submitting'),
-        };
+        return { ...state, current: this.setStatus(state.current, 'submitting') };
       case 'PROGRESS': {
         if (!state.current) return state;
-        const nextStatus =
-          action.payload.step === 'stream' ? 'running' : state.current.status;
+        const nextStatus = action.payload.step === 'stream' ? 'running' : state.current.status;
         return {
           ...state,
-          current: {
-            ...state.current,
-            status: nextStatus,
-            progress: action.payload,
-          },
+          current: { ...state.current, status: nextStatus, progress: action.payload },
         };
       }
       case 'RUN_SUCCEED': {
@@ -106,32 +91,20 @@ export class EngineRunController {
         if (!state.current) return state;
         return {
           ...state,
-          current: {
-            ...state.current,
-            status: 'failed',
-            error: action.error,
-            finishedAt: action.finishedAt,
-          },
+          current: { ...state.current, status: 'failed', error: action.error, finishedAt: action.finishedAt },
         };
       case 'RUN_CANCEL':
         if (!state.current) return state;
         return {
           ...state,
-          current: {
-            ...state.current,
-            status: 'cancelled',
-            finishedAt: action.finishedAt,
-          },
+          current: { ...state.current, status: 'cancelled', finishedAt: action.finishedAt },
         };
       case 'APPEND_RUN_LOG': {
         if (!state.current) return state;
         if (action.entries.length === 0) return state;
         return {
           ...state,
-          current: {
-            ...state.current,
-            log: [...state.current.log, ...action.entries],
-          },
+          current: { ...state.current, log: [...state.current.log, ...action.entries] },
         };
       }
       case 'SHOW_RESULT':
@@ -159,29 +132,100 @@ export class EngineRunController {
   };
 
   /* ------------------------------------------------------------------------ */
-  /* Controller Pipeline Helpers                                              */
+  /* Imperative Side-Effect Actions (Merged from Results)                     */
   /* ------------------------------------------------------------------------ */
 
-  private emptyRecord(
-    runId: string,
-    modelId: string,
-    params: ModelParams,
-    startedAt: number,
-  ): RunRecord {
+  private resolveLayers(runId: string): Map<string, MapLayerEnvelope> {
+    const rec = this.engine.findRun(runId);
+    if (!rec || !rec.result) return new Map();
+    return new Map(extractResultLayers(rec.result, runId).map((l) => [l.id, l.envelope]));
+  }
+
+  showResult = (runId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || rec.layerIds.length === 0) return;
+    const toAdd = rec.layerIds.filter((id) => !rec.visibleLayerIds.includes(id));
+    if (toAdd.length === 0) return;
+    const layers = this.resolveLayers(runId);
+    this.engine.dispatchRun({ type: 'SHOW_RESULT', runId });
+    for (const layerId of toAdd) {
+      const envelope = layers.get(layerId);
+      if (envelope) this.engine.mapActions?.addResultLayer(runId, layerId, envelope);
+    }
+  };
+
+  hideResult = (runId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (!rec || rec.visibleLayerIds.length === 0) return;
+    const toRemove = [...rec.visibleLayerIds];
+    this.engine.dispatchRun({ type: 'HIDE_RESULT', runId });
+    for (const layerId of toRemove) this.engine.mapActions?.removeResultLayer(runId, layerId);
+  };
+
+  toggleResult = (runId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (!rec || rec.layerIds.length === 0) return;
+    if (rec.visibleLayerIds.length < rec.layerIds.length) this.showResult(runId);
+    else this.hideResult(runId);
+  };
+
+  showResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || !rec.layerIds.includes(layerId) || rec.visibleLayerIds.includes(layerId)) return;
+    const layers = this.resolveLayers(runId);
+    const envelope = layers.get(layerId);
+    if (!envelope) return;
+    this.engine.dispatchRun({ type: 'SHOW_RESULT_LAYER', runId, layerId });
+    this.engine.mapActions?.addResultLayer(runId, layerId, envelope);
+  };
+
+  hideResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (!rec || !rec.visibleLayerIds.includes(layerId)) return;
+    this.engine.dispatchRun({ type: 'HIDE_RESULT_LAYER', runId, layerId });
+    this.engine.mapActions?.removeResultLayer(runId, layerId);
+  };
+
+  toggleResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (!rec || !rec.layerIds.includes(layerId)) return;
+    if (rec.visibleLayerIds.includes(layerId)) this.hideResultLayer(runId, layerId);
+    else this.showResultLayer(runId, layerId);
+  };
+
+  clearResult = (runId: string): void => {
+    const rec = this.engine.findRun(runId);
+    if (rec) {
+      for (const layerId of rec.visibleLayerIds) {
+        this.engine.mapActions?.removeResultLayer(runId, layerId);
+      }
+    }
+    this.engine.dispatchRun({ type: 'CLEAR_RESULT', runId });
+  };
+
+  clearAllResults = (): void => {
+    const cur = this.engine.getSnapshot().run.current;
+    if (cur) {
+      for (const layerId of cur.visibleLayerIds) {
+        this.engine.mapActions?.removeResultLayer(cur.runId, layerId);
+      }
+    }
+    for (const rec of this.engine.getSnapshot().run.history) {
+      for (const layerId of rec.visibleLayerIds) {
+        this.engine.mapActions?.removeResultLayer(rec.runId, layerId);
+      }
+    }
+    this.engine.dispatchRun({ type: 'CLEAR_ALL_RESULTS' });
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Reducer State Transformers & Projections                                 */
+  /* ------------------------------------------------------------------------ */
+
+  private emptyRecord(runId: string, modelId: string, params: ModelParams, startedAt: number): RunRecord {
     return {
-      runId,
-      modelId,
-      params,
-      status: 'idle',
-      result: null,
-      error: null,
-      progress: null,
-      startedAt,
-      finishedAt: null,
-      log: [],
-      layerIds: [],
-      visibleLayerIds: [],
-      visible: false,
+      runId, modelId, params, status: 'idle', result: null, error: null, progress: null,
+      startedAt, finishedAt: null, log: [], layerIds: [], visibleLayerIds: [], visible: false,
     };
   }
 
@@ -233,30 +277,14 @@ export class EngineRunController {
     };
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Projections & Summaries                                                  */
-  /* ------------------------------------------------------------------------ */
-
   toSummary(rec: RunRecord): RunSummary {
     const visible = rec.visibleLayerIds.length > 0;
-    const partial =
-      rec.layerIds.length > 0 &&
-      rec.visibleLayerIds.length > 0 &&
-      rec.visibleLayerIds.length < rec.layerIds.length;
+    const partial = rec.layerIds.length > 0 && rec.visibleLayerIds.length > 0 && rec.visibleLayerIds.length < rec.layerIds.length;
     return {
-      runId: rec.runId,
-      modelId: rec.modelId,
-      status: rec.status,
-      error: rec.error,
-      progress: rec.progress,
-      startedAt: rec.startedAt,
-      finishedAt: rec.finishedAt,
-      log: rec.log,
+      runId: rec.runId, modelId: rec.modelId, status: rec.status, error: rec.error, progress: rec.progress,
+      startedAt: rec.startedAt, finishedAt: rec.finishedAt, log: rec.log,
       warnings: rec.log.filter((e: RunLogEntry) => e.level === 'warning').map((e: RunLogEntry) => e.message),
-      layerIds: rec.layerIds,
-      visibleLayerIds: rec.visibleLayerIds,
-      visible,
-      partial,
+      layerIds: rec.layerIds, visibleLayerIds: rec.visibleLayerIds, visible, partial,
     };
   }
 

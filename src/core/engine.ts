@@ -1,5 +1,5 @@
 import { EngineDrawingController } from './engine.drawing';
-import { EngineResultActions } from './engine.results';
+// import { EngineResultActions } from './engine.results';
 import type { DrawAction } from './engine.drawing';
 import type { 
   Executor, DrawnFeature, ModelDef, 
@@ -28,8 +28,8 @@ export class SimulationEngine {
   public models = new ModelRegistry();
   // Sub-modules allocated on creation
   public readonly drawing = new EngineDrawingController(this);
-  public readonly results = new EngineResultActions(this);
-  public readonly runs = new EngineRunController();
+  // public readonly results = new EngineResultActions(this);
+  public readonly runs = new EngineRunController(this);
 
   private _nextRunId = (): string =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -112,7 +112,7 @@ export class SimulationEngine {
           const layerCount = extractResultLayers(result, runId).length;
           rawAppend('info', `Completed · ${layerCount} layer${layerCount === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerCount > 0) {
-            this.results.showResult(runId);
+            this.runs.showResult(runId);
           }
         }
       } catch (err) {
