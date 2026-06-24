@@ -78,18 +78,12 @@ export function wireEvents(
           const ring: LngLat[] = geom.coordinates[0].map(([lng, lat]) => ({ lng, lat }));
           const newCenter = centroid(ring);
           const newRadius = averageRadiusMeters(newCenter, ring);
-          engine.features.updateCircle(typeId, { center: newCenter, radiusMeters: newRadius });
+          engine.updateCircle(typeId, { center: newCenter, radiusMeters: newRadius });
         } else {
-          engine.dispatchFeature({
-            type: 'UPDATE_FEATURE',
-            payload: { id: typeId, updates: { geojson } },
-          });
+          engine.updateFeature(typeId, { geojson });
         }
       } else {
-        engine.dispatchFeature({
-          type: 'UPDATE_FEATURE',
-          payload: { id: typeId, updates: { geojson } },
-        });
+        engine.updateFeature(typeId, { geojson });
       }
     } else {
       let circle: { center: LngLat; radiusMeters: number } | undefined;
@@ -104,17 +98,14 @@ export function wireEvents(
           };
         }
       }
-      engine.dispatchFeature({
-        type: 'ADD_FEATURE',
-        payload: {
-          id: typeId,
-          geometryKind: geometryKindForMode(lastMode ?? 'point'),
-          category: lastCategory ?? '',
-          label: '',
-          visible: true,
-          geojson,
-          ...(circle ? { circle } : {}),
-        },
+      engine.addFeature({
+        id: typeId,
+        geometryKind: geometryKindForMode(lastMode ?? 'point'),
+        category: lastCategory ?? '',
+        label: '',
+        visible: true,
+        geojson,
+        ...(circle ? { circle } : {}),
       });
     }
     if (lastMode !== 'select') {
@@ -133,10 +124,7 @@ export function wireEvents(
     const existing = engine.getSnapshot().features.features.find((f: DataFeature) => f.id === typeId);
     if (!existing) return;
     if (existing.geometryKind === 'circle') return;
-    engine.dispatchFeature({
-      type: 'UPDATE_FEATURE',
-      payload: { id: typeId, updates: { geojson: feature as unknown as GeoJSON.Feature } },
-    });
+    engine.updateFeature(typeId, { geojson: feature as unknown as GeoJSON.Feature });
   });
 
   const startDrawing = (mode: DrawMode, category: string = '') => {

@@ -225,7 +225,7 @@ function GeometryFields({ feature }: FieldsProps) {
 
 
 function FeatureCard({ id }: { id: string }) {
-  const { state, dispatch, removeFeature, toggleVisibility } = useFeatures();
+  const { state, updateFeature, selectFeature, removeFeature, toggleVisibility } = useFeatures();
   const [open, setOpen] = useState(false);
   const feature = state.features.find((f: DataFeature) => f.id === id);
 
@@ -239,7 +239,7 @@ function FeatureCard({ id }: { id: string }) {
   return (
     <div
       className={`data-feature-item ${state.selectedFeatureId === feature.id ? 'selected' : ''}`}
-      onClick={() => dispatch({ type: 'SELECT_FEATURE', payload: feature.id })}
+      onClick={() => selectFeature(feature.id)}
     >
       <div className="data-feature-row">
         <span className="data-feature-dot" title={feature.geometryKind}>{kindIcon}</span>
@@ -255,7 +255,7 @@ function FeatureCard({ id }: { id: string }) {
           value={feature.label}
           placeholder="Label..."
           onClick={(e) => e.stopPropagation()}
-          onChange={(e) => dispatch({ type: 'UPDATE_FEATURE', payload: { id: feature.id, updates: { label: e.target.value } } })}
+          onChange={(e) => updateFeature(feature.id, { label: e.target.value })}
         />
         <button
           className="data-icon-btn"

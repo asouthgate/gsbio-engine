@@ -20,19 +20,16 @@ describe('Engine Hooks', () => {
     expect(result.current.state.selectedFeatureId).toBeNull();
   });
 
-  it('dispatches feature actions', () => {
+  it('addFeature updates the feature list', () => {
     const { result } = renderHook(() => useFeatures(), { wrapper });
     act(() => {
-      result.current.dispatch({
-        type: 'ADD_FEATURE',
-        payload: {
-          id: 'f1',
-          geometryKind: 'point',
-          category: '',
-          label: '',
-          visible: true,
-          geojson: { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} },
-        },
+      result.current.addFeature({
+        id: 'f1',
+        geometryKind: 'point',
+        category: '',
+        label: '',
+        visible: true,
+        geojson: { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} },
       });
     });
     expect(result.current.state.features).toHaveLength(1);
@@ -47,11 +44,11 @@ describe('Engine Hooks', () => {
     );
     const { result } = renderHook(() => useModel(), { wrapper });
     act(() => {
-        result.current.dispatch({ type: 'SET_MODEL', payload: 'model_a' });
+        result.current.setModel('model_a');
     });
     expect(result.current.state.modelId).toBe('model_a');
     act(() => {
-        result.current.dispatch({ type: 'SET_MODEL', payload: 'model_b' });
+        result.current.setModel('model_b');
     });
     expect(result.current.state.modelId).toBe('model_a');
   });
@@ -65,16 +62,13 @@ describe('Engine Hooks', () => {
     const hook2 = renderHook(() => useFeatures(), { wrapper: customWrapper });
 
     act(() => {
-      hook1.result.current.dispatch({
-        type: 'ADD_FEATURE',
-        payload: {
-          id: 'f1',
-          geometryKind: 'linestring',
-          category: '',
-          label: '',
-          visible: true,
-          geojson: { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, properties: {} },
-        },
+      hook1.result.current.addFeature({
+        id: 'f1',
+        geometryKind: 'linestring',
+        category: '',
+        label: '',
+        visible: true,
+        geojson: { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, properties: {} },
       });
     });
 

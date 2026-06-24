@@ -64,5 +64,5 @@ export const radialSpreadExecutor: Executor = {
 export function installRadialSpread(engine: SimulationEngine): void {
   engine.registerModel(radialSpreadModel);
   engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
-  engine.dispatchModel({ type: 'SET_MODEL', payload: radialSpreadModel.id });
+  engine.setModel(radialSpreadModel.id);
 }

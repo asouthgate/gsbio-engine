@@ -40,7 +40,7 @@ export interface ModelFormProps {
 }
 
 export function ModelForm({ className = 'panel-section' }: ModelFormProps) {
-  const { state, dispatch } = useModel();
+  const { state, setModel, setModelParam } = useModel();
   const engine = useEngine();
   const models = engine.models.list();
   const def = engine.models.get(state.modelId);
@@ -51,7 +51,7 @@ export function ModelForm({ className = 'panel-section' }: ModelFormProps) {
         <span className="field-label">Model</span>
         <select
           value={state.modelId}
-          onChange={(e) => dispatch({ type: 'SET_MODEL', payload: e.target.value })}
+          onChange={(e) => setModel(e.target.value)}
         >
           {models.map((m) => (
             <option key={m.id} value={m.id}>{m.name}</option>
@@ -66,7 +66,7 @@ export function ModelForm({ className = 'panel-section' }: ModelFormProps) {
           key={p.key}
           def={p}
           value={state.params[p.key] ?? p.default}
-          onChange={(v) => dispatch({ type: 'SET_PARAM', payload: { key: p.key, value: v } })}
+          onChange={(v) => setModelParam(p.key, v)}
         />
       ))}
     </div>

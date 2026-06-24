@@ -1,17 +1,30 @@
-import { FeatureStore } from './engine.featureStore';
-import type { FeatureAction } from './engine.featureStore';
 import type {
-  Executor, DataFeature, ModelDef,
-  RunLogLevel, RunProgress, RunRecord
+  Executor, DataFeature, CircleGeometry, ModelDef, ModelParams,
+  RunLogLevel, RunProgress, RunRecord, MapLayerEnvelope, RunSummary,
 } from './types';
 import { extractResultLayers } from './types';
-import type { ModelAction } from './engine.modelRegistry';
 import { helloWorldModel } from './models/helloWorld';
-
-import type { EngineState, EngineListener, MapActions } from './engine.types';
 import { SourceRegistry } from './engine.sourceRegistry';
 import { ModelRegistry } from './engine.modelRegistry';
-import { EngineRunController, type RunAction } from './engine.runController';
+import { replaceGeometry } from './featureHelpers';
+import {
+  circleToPolygon,
+  lineStringToGeoJSONFeature,
+  polygonRingToGeoJSONFeature,
+  COORDINATE_PRECISION,
+  type LngLat,
+} from './spatial';
+import {
+  emptyRunRecord,
+  setRunStatus,
+  pushCurrentToHistory,
+  applyRunVisibility,
+  applyLayerVisibility,
+  findRun as findRunInState,
+  allSummaries as computeAllSummaries,
+} from './runHelpers';
+import type { EngineState, EngineListener, MapActions } from './engine.types';
+import type { RunState } from './engine.runController';
 export type { EngineState, EngineListener, MapActions };
 
 export class SimulationEngine {
@@ -24,9 +37,7 @@ export class SimulationEngine {
   autoShowResults = false;
 
   public readonly dataSources = new SourceRegistry();
-  public models = new ModelRegistry();
-  public readonly features = new FeatureStore(this);
-  public readonly runs = new EngineRunController(this);
+  public readonly models = new ModelRegistry();
 
   private _nextRunId = (): string =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -36,8 +47,8 @@ export class SimulationEngine {
   constructor() {
     this.models.register(helloWorldModel);
     this._state = {
-      features: this.features.getInitialState(),
-      run: this.runs.getInitialState(),
+      features: { features: [], selectedFeatureId: null },
+      run: { current: null, history: [] },
       model: this.models.getInitialState('hello-world'),
     };
   }
@@ -48,21 +59,270 @@ export class SimulationEngine {
   };
 
   getSnapshot = (): EngineState => this._state;
-  private emit() { for (const l of this._listeners) l(); }
-  private patch(partial: Partial<EngineState>) { this._state = { ...this._state, ...partial }; this.emit(); }
+  private emit() { this._state = { ...this._state }; for (const l of this._listeners) l(); }
 
-  dispatchFeature = (action: FeatureAction): void => this.patch({ features: this.features.reducer(this._state.features, action) });
-  dispatchModel = (action: ModelAction): void => this.patch({ model: this.models.reducer(this._state.model, action) });
-  dispatchRun = (action: RunAction): void => this.patch({ run: this.runs.reducer(this._state.run, action) });
+  addFeature(feature: DataFeature): void {
+    this._state.features = {
+      ...this._state.features,
+      features: [...this._state.features.features, feature],
+    };
+    this.emit();
+  }
+
+  removeFeature(id: string): void {
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.filter((f) => f.id !== id),
+      selectedFeatureId: this._state.features.selectedFeatureId === id ? null : this._state.features.selectedFeatureId,
+    };
+    this.mapActions?.removeFeatureFromMap(id);
+    this.emit();
+  }
+
+  updateFeature(id: string, updates: Partial<DataFeature>): void {
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.map((f) =>
+        f.id === id ? { ...f, ...updates } : f,
+      ),
+    };
+    this.emit();
+  }
+
+  selectFeature(id: string | null): void {
+    this._state.features = { ...this._state.features, selectedFeatureId: id };
+    this.emit();
+  }
+
+  clearFeatures(): void {
+    this._state.features = { features: [], selectedFeatureId: null };
+    this.emit();
+  }
+
+  private featureById(id: string): DataFeature | undefined {
+    return this._state.features.features.find((f) => f.id === id);
+  }
+
+  toggleFeatureVisibility(id: string): void {
+    const f = this.featureById(id);
+    if (!f) return;
+    const visible = !f.visible;
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.map((f) =>
+        f.id === id ? { ...f, visible } : f,
+      ),
+    };
+    this.mapActions?.setFeatureVisibility(id, visible, f.geojson);
+    this.emit();
+  }
+
+  updateCircle(id: string, patch: Partial<CircleGeometry>): void {
+    const f = this.featureById(id);
+    if (!f || !f.circle) return;
+    const circle = { ...f.circle, ...patch };
+    const geojson = replaceGeometry(f, circleToPolygon(circle.center, circle.radiusMeters).geometry);
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.map((f) =>
+        f.id === id ? { ...f, circle, geojson } : f,
+      ),
+    };
+    this.mapActions?.updateFeatureGeometry(id, geojson);
+    this.emit();
+  }
+
+  updatePointPosition(id: string, lngLat: LngLat): void {
+    const f = this.featureById(id);
+    if (!f || f.geometryKind !== 'point') return;
+    const fRatio = 10 ** COORDINATE_PRECISION;
+    const lng = Math.round(lngLat.lng * fRatio) / fRatio;
+    const lat = Math.round(lngLat.lat * fRatio) / fRatio;
+    const geometry: GeoJSON.Geometry = { type: 'Point', coordinates: [lng, lat] };
+    const geojson = replaceGeometry(f, geometry);
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.map((f) =>
+        f.id === id ? { ...f, geojson } : f,
+      ),
+    };
+    this.mapActions?.updateFeatureGeometry(id, geojson);
+    this.emit();
+  }
+
+  updateLineStringCoords(id: string, coords: LngLat[]): void {
+    const f = this.featureById(id);
+    if (!f || f.geometryKind !== 'linestring') return;
+    const geojson = replaceGeometry(f, lineStringToGeoJSONFeature(coords).geometry);
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.map((f) =>
+        f.id === id ? { ...f, geojson } : f,
+      ),
+    };
+    this.mapActions?.updateFeatureGeometry(id, geojson);
+    this.emit();
+  }
+
+  updatePolygonRing(id: string, ring: LngLat[]): void {
+    const f = this.featureById(id);
+    if (!f || f.geometryKind !== 'polygon') return;
+    const geojson = replaceGeometry(f, polygonRingToGeoJSONFeature(ring).geometry);
+    this._state.features = {
+      ...this._state.features,
+      features: this._state.features.features.map((f) =>
+        f.id === id ? { ...f, geojson } : f,
+      ),
+    };
+    this.mapActions?.updateFeatureGeometry(id, geojson);
+    this.emit();
+  }
+
+  setModel(modelId: string): void {
+    const def = this.models.get(modelId);
+    if (!def) {
+      console.warn(`[Engine] Cannot set model: ${modelId} not found.`);
+      return;
+    }
+    this._state.model = { modelId, params: this.models.defaultParamsFor(def) };
+    this.emit();
+  }
+
+  setModelParam(key: string, value: number): void {
+    this._state.model = {
+      ...this._state.model,
+      params: { ...this._state.model.params, [key]: value },
+    };
+    this.emit();
+  }
+
+  setModelParams(params: ModelParams): void {
+    this._state.model = { ...this._state.model, params: { ...this._state.model.params, ...params } };
+    this.emit();
+  }
+
+  registerModel(def: ModelDef): void {
+    this.models.register(def);
+    if (this._state.model.modelId === '' || !this.models.get(this._state.model.modelId)) {
+      this._state.model = { modelId: def.id, params: this.models.defaultParamsFor(def) };
+      this.emit();
+    }
+  }
 
   setMapActions(actions: MapActions): void { this.mapActions = actions; }
-  registerModel = (def: ModelDef): void => { this.models.register(def); };
-  registerExecutor = (modelId: string, executor: Executor): void => { this._executors.set(modelId, executor); };
-  getExecutor = (modelId: string): Executor | undefined => this._executors.get(modelId);
-  findRun = (runId: string): RunRecord | undefined => {
-    const c = this._state.run.current;
-    return c?.runId === runId ? c : this._state.run.history.find((r: RunRecord) => r.runId === runId);
+
+  registerExecutor(modelId: string, executor: Executor): void {
+    this._executors.set(modelId, executor);
+  }
+
+  getExecutor(modelId: string): Executor | undefined {
+    return this._executors.get(modelId);
+  }
+
+
+  private resolveRunLayers(runId: string): Map<string, MapLayerEnvelope> {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.result) return new Map();
+    return new Map(extractResultLayers(rec.result, runId).map((l) => [l.id, l.envelope]));
+  }
+
+  showResult = (runId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || rec.layerIds.length === 0) return;
+    const toAdd = rec.layerIds.filter((id) => !rec.visibleLayerIds.includes(id));
+    if (toAdd.length === 0) return;
+    const layers = this.resolveRunLayers(runId);
+    for (const layerId of toAdd) {
+      const envelope = layers.get(layerId);
+      if (envelope) this.mapActions?.addResultLayer(runId, layerId, envelope);
+    }
+    this._state.run = applyRunVisibility(this._state.run, runId, true);
+    this.emit();
   };
+
+  hideResult = (runId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.visibleLayerIds.length === 0) return;
+    for (const layerId of rec.visibleLayerIds) this.mapActions?.removeResultLayer(runId, layerId);
+    this._state.run = applyRunVisibility(this._state.run, runId, false);
+    this.emit();
+  };
+
+  toggleResult = (runId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.layerIds.length === 0) return;
+    if (rec.visibleLayerIds.length < rec.layerIds.length) this.showResult(runId);
+    else this.hideResult(runId);
+  };
+
+  showResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || !rec.layerIds.includes(layerId) || rec.visibleLayerIds.includes(layerId)) return;
+    const layers = this.resolveRunLayers(runId);
+    const envelope = layers.get(layerId);
+    if (!envelope) return;
+    this.mapActions?.addResultLayer(runId, layerId, envelope);
+    this._state.run = applyLayerVisibility(this._state.run, runId, layerId, true);
+    this.emit();
+  };
+
+  hideResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.visibleLayerIds.includes(layerId)) return;
+    this.mapActions?.removeResultLayer(runId, layerId);
+    this._state.run = applyLayerVisibility(this._state.run, runId, layerId, false);
+    this.emit();
+  };
+
+  toggleResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.layerIds.includes(layerId)) return;
+    if (rec.visibleLayerIds.includes(layerId)) this.hideResultLayer(runId, layerId);
+    else this.showResultLayer(runId, layerId);
+  };
+
+  clearResult = (runId: string): void => {
+    const rec = this.findRun(runId);
+    if (rec) {
+      for (const layerId of rec.visibleLayerIds) {
+        this.mapActions?.removeResultLayer(runId, layerId);
+      }
+    }
+    if (this._state.run.current?.runId === runId) {
+      this._state.run = { ...this._state.run, current: null };
+    } else {
+      this._state.run = {
+        ...this._state.run,
+        history: this._state.run.history.filter((r) => r.runId !== runId),
+      };
+    }
+    this.emit();
+  };
+
+  clearAllResults = (): void => {
+    const { current, history } = this._state.run;
+    if (current) {
+      for (const layerId of current.visibleLayerIds) {
+        this.mapActions?.removeResultLayer(current.runId, layerId);
+      }
+    }
+    for (const rec of history) {
+      for (const layerId of rec.visibleLayerIds) {
+        this.mapActions?.removeResultLayer(rec.runId, layerId);
+      }
+    }
+    this._state.run = { current: null, history: [] };
+    this.emit();
+  };
+
+  findRun(runId: string): RunRecord | undefined {
+    return findRunInState(this._state.run, runId);
+  }
+
+  allSummaries(state?: RunState): RunSummary[] {
+    return computeAllSummaries(state ?? this._state.run);
+  }
+
 
   run = async (): Promise<void> => {
     if (this._abort) {
@@ -77,9 +337,18 @@ export class SimulationEngine {
     const startedAt = Date.now();
 
     const exec = async (): Promise<void> => {
-      this.dispatchRun({ type: 'RUN_REQUEST', runId, modelId, params, startedAt });
+      // Run request: push current to history, create empty record
+      const record = emptyRunRecord(runId, modelId, params, startedAt);
+      this._state.run = { ...pushCurrentToHistory(this._state.run), current: record };
+      this.emit();
+
       const rawAppend = (level: RunLogLevel, message: string): void => {
-        this.dispatchRun({ type: 'APPEND_RUN_LOG', entries: [{ ts: Date.now(), level, message }] });
+        if (!this._state.run.current) return;
+        this._state.run.current = {
+          ...this._state.run.current,
+          log: [...this._state.run.current.log, { ts: Date.now(), level, message }],
+        };
+        this.emit();
       };
       const onLog = (level: RunLogLevel, message: string): void => {
         if (this._abort === ac && !ac.signal.aborted) rawAppend(level, message);
@@ -91,35 +360,61 @@ export class SimulationEngine {
         if (!executor) throw new Error(`No executor registered for model "${modelId}"`);
 
         const features: ReadonlyArray<DataFeature> = this._state.features.features;
-        this.dispatchRun({ type: 'PREPROCESS_START' });
+
+        // Preprocess
         rawAppend('info', 'Preprocessing…');
+        this._state.run = { ...this._state.run, current: setRunStatus(this._state.run.current!, 'preprocessing') };
+        this.emit();
         const { payload } = await executor.preprocess({ modelId, params, features, onLog }, ac.signal);
 
         if (ac.signal.aborted) return;
-        this.dispatchRun({ type: 'SUBMIT_START' });
+
+        // Submit
         rawAppend('info', 'Submitting…');
+        this._state.run = { ...this._state.run, current: setRunStatus(this._state.run.current!, 'submitting') };
+        this.emit();
 
         const onProgress = (p: RunProgress): void => {
-          if (!ac.signal.aborted && this._abort === ac) this.dispatchRun({ type: 'PROGRESS', payload: p });
+          if (!ac.signal.aborted && this._abort === ac && this._state.run.current) {
+            const nextStatus = p.step === 'stream' ? 'running' : this._state.run.current.status;
+            this._state.run.current = { ...this._state.run.current, status: nextStatus, progress: p };
+            this.emit();
+          }
         };
         const result = await executor.submit({ modelId, params, payload, onProgress, onLog }, ac.signal);
 
         if (this._abort === ac && !ac.signal.aborted) {
-          this.dispatchRun({ type: 'RUN_SUCCEED', result, finishedAt: Date.now() });
-          const layerCount = extractResultLayers(result, runId).length;
-          rawAppend('info', `Completed · ${layerCount} layer${layerCount === 1 ? '' : 's'}`);
-          if (this.autoShowResults && layerCount > 0) {
-            this.runs.showResult(runId);
+          const layers = extractResultLayers(result, runId);
+          const layerIds = layers.map((l: { id: string }) => l.id);
+          this._state.run.current = {
+            ...this._state.run.current!,
+            status: 'succeeded',
+            result,
+            finishedAt: Date.now(),
+            layerIds,
+            visibleLayerIds: [],
+            visible: false,
+          };
+          this.emit();
+          rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
+          if (this.autoShowResults && layerIds.length > 0) {
+            this.showResult(runId);
           }
         }
       } catch (err) {
         if (this._abort !== ac) return;
         if (ac.signal.aborted) {
-          this.dispatchRun({ type: 'RUN_CANCEL', finishedAt: Date.now() });
+          if (this._state.run.current) {
+            this._state.run.current = { ...this._state.run.current, status: 'cancelled', finishedAt: Date.now() };
+            this.emit();
+          }
           rawAppend('info', 'Cancelled');
         } else {
           const message = err instanceof Error ? err.message : String(err);
-          this.dispatchRun({ type: 'RUN_FAIL', error: message, finishedAt: Date.now() });
+          if (this._state.run.current) {
+            this._state.run.current = { ...this._state.run.current, status: 'failed', error: message, finishedAt: Date.now() };
+            this.emit();
+          }
           rawAppend('error', message);
         }
       } finally {

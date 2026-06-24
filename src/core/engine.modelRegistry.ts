@@ -5,11 +5,6 @@ export interface ModelState {
   params: ModelParams;
 }
 
-export type ModelAction =
-  | { type: 'SET_MODEL'; payload: string }
-  | { type: 'SET_PARAM'; payload: { key: string; value: number } }
-  | { type: 'SET_PARAMS'; payload: ModelParams };
-
 export class ModelRegistry {
   private _models = new Map<string, ModelDef>();
 
@@ -33,10 +28,6 @@ export class ModelRegistry {
     return out;
   }
 
-  /**
-   * Matches your exact original initial state derivation logic.
-   * Looks up the default model from this instance's map.
-   */
   getInitialState(defaultId: string = 'hello-world'): ModelState {
     const initialModelId = this.get(defaultId)?.id ?? '';
     const initialModel = this.get(initialModelId);
@@ -45,39 +36,5 @@ export class ModelRegistry {
       modelId: initialModelId,
       params: initialModel ? this.defaultParamsFor(initialModel) : {},
     };
-  }
-
-  /**
-   * Your exact original reducer functionality, bound to this registry instance.
-   */
-  reducer(state: ModelState, action: ModelAction): ModelState {
-    switch (action.type) {
-      case 'SET_MODEL': {
-        const def = this.get(action.payload);
-        // Only update if the model exists in the registry!
-        if (!def) {
-          console.warn(`[Engine] Cannot set model: ${action.payload} not found.`);
-          return state; 
-        }
-        return {
-          ...state,
-          modelId: action.payload,
-          params: def ? this.defaultParamsFor(def) : {},
-        };
-      }
-      case 'SET_PARAM':
-        return { 
-          ...state, 
-          params: { ...state.params, [action.payload.key]: action.payload.value } 
-        };
-      case 'SET_PARAMS':
-        return { 
-          ...state, 
-          params: { ...state.params, ...action.payload } 
-        };
-      default:
-        console.warn(`[Engine] Unexpected action type: ${(action as any).type}`);
-        return state;
-    }
   }
 }

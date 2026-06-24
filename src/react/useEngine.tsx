@@ -9,13 +9,12 @@ import {
 import {
   createSimulationEngine,
   type CircleGeometry,
-  type FeatureAction,
   type EngineState,
   type LngLat,
   type RunSummary,
   type SimulationEngine,
+  type DataFeature,
 } from '../core';
-import { type ModelAction } from '../core/engine.modelRegistry';
 
 const EngineContext = createContext<SimulationEngine | null>(null);
 
@@ -45,7 +44,9 @@ export function useEngineState(): EngineState {
 
 export interface FeatureHook {
   state: EngineState['features'];
-  dispatch: (action: FeatureAction) => void;
+  addFeature: (feature: DataFeature) => void;
+  updateFeature: (id: string, updates: Partial<DataFeature>) => void;
+  selectFeature: (id: string | null) => void;
   removeFeature: (id: string) => void;
   toggleVisibility: (id: string) => void;
   updatePointPosition: (id: string, lngLat: LngLat) => void;
@@ -59,19 +60,23 @@ export function useFeatures(): FeatureHook {
   const { features } = useEngineState();
   return {
     state: features,
-    dispatch: engine.dispatchFeature,
-    removeFeature: engine.features.removeFeature,
-    toggleVisibility: engine.features.toggleVisibility,
-    updatePointPosition: engine.features.updatePointPosition,
-    updateCircle: engine.features.updateCircle,
-    updateLineStringCoords: engine.features.updateLineStringCoords,
-    updatePolygonRing: engine.features.updatePolygonRing,
+    addFeature: (f) => engine.addFeature(f),
+    updateFeature: (id, u) => engine.updateFeature(id, u),
+    selectFeature: (id) => engine.selectFeature(id),
+    removeFeature: (id) => engine.removeFeature(id),
+    toggleVisibility: (id) => engine.toggleFeatureVisibility(id),
+    updatePointPosition: (id, ll) => engine.updatePointPosition(id, ll),
+    updateCircle: (id, p) => engine.updateCircle(id, p),
+    updateLineStringCoords: (id, c) => engine.updateLineStringCoords(id, c),
+    updatePolygonRing: (id, r) => engine.updatePolygonRing(id, r),
   };
 }
 
 export interface ModelHook {
   state: EngineState['model'];
-  dispatch: (action: ModelAction) => void;
+  setModel: (modelId: string) => void;
+  setModelParam: (key: string, value: number) => void;
+  setModelParams: (params: Record<string, number>) => void;
 }
 
 export function useModel(): ModelHook {
@@ -79,7 +84,9 @@ export function useModel(): ModelHook {
   const { model } = useEngineState();
   return {
     state: model,
-    dispatch: engine.dispatchModel,
+    setModel: (modelId) => engine.setModel(modelId),
+    setModelParam: (key, value) => engine.setModelParam(key, value),
+    setModelParams: (params) => engine.setModelParams(params),
   };
 }
 
@@ -115,17 +122,17 @@ export interface ResultsHook {
 export function useResults(): ResultsHook {
   const engine = useEngine();
   const { run } = useEngineState();
-  const summaries = useMemo(() => engine.runs.allSummaries(run), [run]);
+  const summaries = useMemo(() => engine.allSummaries(run), [run]);
   return {
     summaries,
     current: summaries.length > 0 ? summaries[0]! : null,
-    showResult: engine.runs.showResult,
-    hideResult: engine.runs.hideResult,
-    toggleResult: engine.runs.toggleResult,
-    showResultLayer: engine.runs.showResultLayer,
-    hideResultLayer: engine.runs.hideResultLayer,
-    toggleResultLayer: engine.runs.toggleResultLayer,
-    clearResult: engine.runs.clearResult,
-    clearAll: engine.runs.clearAllResults,
+    showResult: engine.showResult,
+    hideResult: engine.hideResult,
+    toggleResult: engine.toggleResult,
+    showResultLayer: engine.showResultLayer,
+    hideResultLayer: engine.hideResultLayer,
+    toggleResultLayer: engine.toggleResultLayer,
+    clearResult: engine.clearResult,
+    clearAll: engine.clearAllResults,
   };
 }
