@@ -493,7 +493,7 @@ export class TerraDraw2DRenderer implements Renderer {
             const ring: LngLat[] = geom.coordinates[0].map(([lng, lat]) => ({ lng, lat }));
             const newCenter = centroid(ring);
             const newRadius = averageRadiusMeters(newCenter, ring);
-            engine.updateCircle(typeId, { center: newCenter, radiusMeters: newRadius });
+            engine.drawing.updateCircle(typeId, { center: newCenter, radiusMeters: newRadius });
           } else {
             engine.dispatchDraw({
               type: 'UPDATE_FEATURE',

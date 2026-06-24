@@ -67,14 +67,14 @@ export function useDraw(): DrawHook {
   return {
     state: draw,
     dispatch: engine.dispatchDraw,
-    startDrawing: engine.startDrawing,
-    selectMode: engine.selectMode,
-    removeFeature: engine.removeFeature,
-    toggleVisibility: engine.toggleVisibility,
-    updatePointPosition: engine.updatePointPosition,
-    updateCircle: engine.updateCircle,
-    updateLineStringCoords: engine.updateLineStringCoords,
-    updatePolygonRing: engine.updatePolygonRing,
+    startDrawing: engine.drawing.startDrawing,
+    selectMode: engine.drawing.selectMode,
+    removeFeature: engine.drawing.removeFeature,
+    toggleVisibility: engine.drawing.toggleVisibility,
+    updatePointPosition: engine.drawing.updatePointPosition,
+    updateCircle: engine.drawing.updateCircle,
+    updateLineStringCoords: engine.drawing.updateLineStringCoords,
+    updatePolygonRing: engine.drawing.updatePolygonRing,
   };
 }
 
@@ -147,13 +147,13 @@ export function useResults(): ResultsHook {
   return {
     summaries,
     current: summaries.length > 0 ? summaries[0]! : null,
-    showResult: engine.showResult,
-    hideResult: engine.hideResult,
-    toggleResult: engine.toggleResult,
-    showResultLayer: engine.showResultLayer,
-    hideResultLayer: engine.hideResultLayer,
-    toggleResultLayer: engine.toggleResultLayer,
-    clearResult: engine.clearResult,
-    clearAll: engine.clearAllResults,
+    showResult: engine.results.showResult,
+    hideResult: engine.results.hideResult,
+    toggleResult: engine.results.toggleResult,
+    showResultLayer: engine.results.showResultLayer,
+    hideResultLayer: engine.results.hideResultLayer,
+    toggleResultLayer: engine.results.toggleResultLayer,
+    clearResult: engine.results.clearResult,
+    clearAll: engine.results.clearAllResults,
   };
 }
