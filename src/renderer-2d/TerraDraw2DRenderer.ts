@@ -12,7 +12,7 @@ import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter';
 import {
   averageRadiusMeters,
   centroid,
-  geometryKindForMode,
+  DrawnFeature,
   type DrawMode,
   type LngLat,
   type Renderer,
@@ -462,7 +462,7 @@ export class TerraDraw2DRenderer implements Renderer {
     };
     let lastMode: DrawMode | null = engine.getSnapshot().draw.drawMode;
     let lastCategory: string | null = engine.getSnapshot().draw.pendingCategory ?? null;
-    applyMode(lastMode === 'select' ? 'select' : lastMode, lastCategory ?? '');
+    applyMode(lastMode === 'select' || lastMode === null ? 'select' : lastMode, lastCategory ?? '');
     this.unsubscribeEngine = engine.subscribe(() => {
       const snap = engine.getSnapshot().draw;
       const mode = snap.drawMode;
@@ -481,7 +481,7 @@ export class TerraDraw2DRenderer implements Renderer {
       const typeId = String(id);
       const geojson = feature as unknown as GeoJSON.Feature;
       const snapshot = engine.getSnapshot().draw;
-      const existing = snapshot.features.find((f) => f.id === typeId);
+      const existing = snapshot.features.find((f: DrawnFeature) => f.id === typeId);
       if (existing) {
         if (existing.geometryKind === 'circle' && existing.circle) {
           // Existing circle edited on the map (translated/scaled). Recover the
@@ -527,7 +527,7 @@ export class TerraDraw2DRenderer implements Renderer {
           type: 'ADD_FEATURE',
           payload: {
             id: typeId,
-            geometryKind: geometryKindForMode(snapshot.drawMode),
+            geometryKind: engine.drawing.geometryKindForMode(snapshot.drawMode),
             category: snapshot.pendingCategory ?? '',
             label: '',
             visible: true,
@@ -545,7 +545,7 @@ export class TerraDraw2DRenderer implements Renderer {
       const feature = draw.getSnapshotFeature(id);
       if (!feature) return;
       const typeId = String(id);
-      const existing = engine.getSnapshot().draw.features.find((f) => f.id === typeId);
+      const existing = engine.getSnapshot().draw.features.find((f: DrawnFeature) => f.id === typeId);
       if (!existing) return;
       // Circles are defined by (center, radius) — their polygon approximation
       // is fixed, so drag-driven polygon edits are ignored. The TerraDraw

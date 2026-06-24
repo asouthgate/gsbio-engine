@@ -4,7 +4,7 @@ import type {
   ResultLayerActions, 
 } from './types';
 
-import { type DrawState } from './state/drawSlice';
+import { type DrawState } from './engine.drawing';
 import { type ModelState } from './engine.modelRegistry';
 import { type RunState } from './state/runSlice';
 

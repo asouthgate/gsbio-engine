@@ -1,12 +1,13 @@
-import { EngineDrawingActions } from './engine.drawing';
+import { EngineDrawingController } from './engine.drawing';
 import { EngineResultActions } from './engine.results';
+import type { DrawAction } from './engine.drawing';
 import type { 
   Executor, DrawnFeature, ModelDef, 
   RunLogLevel, RunProgress, RunRecord
 } from './types';
 import { extractResultLayers } from './types';
 import type { ModelAction } from './engine.modelRegistry';
-import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
+// import { drawReducer, initialDrawState, type DrawAction } from './state/drawSlice';
 // import { modelReducer, initialModelState, type ModelAction } from './state/modelSlice';
 import { helloWorldModel } from './models/helloWorld';
 import { runReducer, initialRunState, type RunAction } from './state/runSlice';
@@ -28,7 +29,7 @@ export class SimulationEngine {
   public readonly dataSources = new SourceRegistry();
   public models = new ModelRegistry();
   // Sub-modules allocated on creation
-  public readonly drawing = new EngineDrawingActions(this);
+  public readonly drawing = new EngineDrawingController(this);
   public readonly results = new EngineResultActions(this);
 
   private _nextRunId = (): string =>
@@ -39,7 +40,7 @@ export class SimulationEngine {
   constructor() {
     this.models.register(helloWorldModel);
     this._state = {
-      draw: initialDrawState,
+      draw: this.drawing.getInitialState(),
       run: initialRunState,
       model: this.models.getInitialState('hello-world'), // just sets it to hello-world to start
     };
@@ -54,7 +55,7 @@ export class SimulationEngine {
   private emit() { for (const l of this._listeners) l(); }
   private patch(partial: Partial<EngineState>) { this._state = { ...this._state, ...partial }; this.emit(); }
 
-  dispatchDraw = (action: DrawAction): void => this.patch({ draw: drawReducer(this._state.draw, action) });
+  dispatchDraw = (action: DrawAction): void => this.patch({ draw: this.drawing.reducer(this._state.draw, action) });
   dispatchModel = (action: ModelAction): void => this.patch({ model: this.models.reducer(this._state.model, action) });
   dispatchRun = (action: RunAction): void => this.patch({ run: runReducer(this._state.run, action) });
 

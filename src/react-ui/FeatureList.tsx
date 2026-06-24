@@ -244,7 +244,7 @@ function GeometryFields({ feature }: FieldsProps) {
 function FeatureCard({ id }: { id: string }) {
   const { state, dispatch, removeFeature, toggleVisibility } = useDraw();
   const [open, setOpen] = useState(false);
-  const feature = state.features.find((f) => f.id === id);
+  const feature = state.features.find((f: DrawnFeature) => f.id === id);
 
   if (!feature) return null;
 
@@ -304,7 +304,7 @@ function FeatureCard({ id }: { id: string }) {
 
 function SourceBlock({ source }: { source: DataSourceDef }) {
   const { state } = useDraw();
-  const features = state.features.filter((f) => source.featureIds.includes(f.id));
+  const features = state.features.filter((f: DrawnFeature) => source.featureIds.includes(f.id));
   return (
     <div className="data-source-block">
       <div className="data-source-header">
@@ -315,7 +315,7 @@ function SourceBlock({ source }: { source: DataSourceDef }) {
         <p className="hint">No features in this source yet. Use the toolbar above the map to draw.</p>
       ) : (
         <div className="data-feature-list">
-          {features.map((f) => <FeatureCard key={f.id} id={f.id} />)}
+          {features.map((f: DrawnFeature) => <FeatureCard key={f.id} id={f.id} />)}
         </div>
       )}
     </div>
