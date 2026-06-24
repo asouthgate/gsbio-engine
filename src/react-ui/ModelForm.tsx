@@ -1,5 +1,5 @@
-import { useModel } from '../react';
-import { getModel, listModels, type ModelParamDef } from '../core';
+import { useEngine, useModel } from '../react';
+import { type ModelParamDef } from '../core';
 
 function ParamField({ def, value, onChange }: { def: ModelParamDef; value: number; onChange: (v: number) => void }) {
   if (def.type === 'range') {
@@ -41,8 +41,9 @@ export interface ModelFormProps {
 
 export function ModelForm({ className = 'panel-section' }: ModelFormProps) {
   const { state, dispatch } = useModel();
-  const models = listModels();
-  const def = getModel(state.modelId);
+  const engine = useEngine();
+  const models = engine.models.list();
+  const def = engine.models.get(state.modelId);
 
   return (
     <div className={className}>

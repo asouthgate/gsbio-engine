@@ -5,7 +5,7 @@ import type {
 } from './types';
 
 import { type DrawState } from './state/drawSlice';
-import { type ModelState } from './state/modelSlice';
+import { type ModelState } from './engine.modelRegistry';
 import { type RunState } from './state/runSlice';
 
 /** Combined output port the renderer implements. */

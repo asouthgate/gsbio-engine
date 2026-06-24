@@ -14,10 +14,10 @@ import {
   type DrawMode,
   type EngineState,
   type LngLat,
-  type ModelAction,
   type RunSummary,
   type SimulationEngine,
 } from '../core';
+import { type ModelAction } from '../core/engine.modelRegistry';
 
 const EngineContext = createContext<SimulationEngine | null>(null);
 
