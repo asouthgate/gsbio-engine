@@ -42,6 +42,9 @@ export function wireEvents(
   };
 
   engine.setMapActions({
+    addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => {
+      try { draw.addFeatures([geojson as never]); } catch { /* ignore */ }
+    },
     removeFeatureFromMap: (id: string) => {
       try { draw.removeFeatures([id]); } catch { /* feature may not exist */ }
     },

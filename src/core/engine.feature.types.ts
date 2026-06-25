@@ -24,6 +24,7 @@ export interface FeatureState {
 }
 
 export interface FeatureMapActions {
+  addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => void;
   removeFeatureFromMap: (id: string) => void;
   setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature) => void;
   updateFeatureGeometry: (id: string, geojson: GeoJSON.Feature) => void;

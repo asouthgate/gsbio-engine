@@ -23,9 +23,10 @@ import {
   findRun as findRunInState,
   allSummaries as computeAllSummaries,
 } from './runHelpers';
-import type { EngineState, EngineListener, MapActions } from './engine.types';
+import type { EngineState, EngineListener, MapActions, FileSourceState } from './engine.types';
 import type { RunState } from './engine.runController.types';
-export type { EngineState, EngineListener, MapActions };
+import type { FileSourceDef } from './engine.fileSource.types';
+export type { EngineState, EngineListener, MapActions, FileSourceState };
 
 export class SimulationEngine {
   private _state: EngineState;
@@ -50,6 +51,7 @@ export class SimulationEngine {
       features: { features: [], selectedFeatureId: null },
       run: { current: null, history: [] },
       model: this.models.getInitialState('hello-world'),
+      fileSources: [],
     };
   }
 
@@ -66,7 +68,63 @@ export class SimulationEngine {
       ...this._state.features,
       features: [...this._state.features.features, feature],
     };
+    const gj = this._withTerraDrawMode(feature);
+    this.mapActions?.addFeatureToMap(feature.id, gj);
     this.emit();
+  }
+
+  /** Register a file data source and bulk-add its parsed features.
+   *  Features are rendered on the map and grouped as a named source in the UI. */
+  addFileSourceFeatures(def: FileSourceDef, features: DataFeature[]): void {
+    const featureIds: string[] = [];
+    const existing = this._state.features.features;
+    const currentSource = this._state.fileSources.find((s) => s.sourceId === def.id);
+
+    if (currentSource) {
+      const oldIds = new Set(currentSource.featureIds);
+      const withoutOld = existing.filter((f) => !oldIds.has(f.id));
+      const added = [...withoutOld, ...features];
+      for (const f of features) {
+        this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
+      }
+      this._state.features = { ...this._state.features, features: added };
+      this._state.fileSources = this._state.fileSources.map((s) =>
+        s.sourceId === def.id ? { sourceId: def.id, name: def.name, featureIds: features.map((f) => f.id) } : s,
+      );
+    } else {
+      for (const f of features) {
+        featureIds.push(f.id);
+        this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
+      }
+      this._state.features = { ...this._state.features, features: [...existing, ...features] };
+      this._state.fileSources = [
+        ...this._state.fileSources,
+        { sourceId: def.id, name: def.name, featureIds },
+      ];
+    }
+
+    this.dataSources.register({
+      id: def.id,
+      name: def.name,
+      kind: 'upload',
+      featureIds: features.map((f) => f.id),
+    });
+    this.emit();
+  }
+
+  /** Inject the TerraDraw mode name into a store-entry shape
+   *  (`{ id, geometry, properties }`) so programmatically-added
+   *  features are accepted by draw.addFeatures() and rendered
+   *  with the correct tool style. */
+  private _withTerraDrawMode(f: DataFeature): GeoJSON.Feature {
+    const mode = `${f.geometryKind}__${f.category}`;
+    const existing = f.geojson.properties ?? {};
+    return {
+      id: f.id,
+      type: 'Feature',
+      geometry: f.geojson.geometry,
+      properties: { ...existing, mode },
+    } as unknown as GeoJSON.Feature;
   }
 
   removeFeature(id: string): void {
