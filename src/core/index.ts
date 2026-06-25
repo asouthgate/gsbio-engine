@@ -4,7 +4,6 @@ export * from './models/helloWorld';
 export * from './mapStyles';
 export * from './stubExecutor';
 export * from './engine.fileSource.types';
-export * from './engine.fileSource';
 
 export { type DataFeature, type CircleGeometry, type FeatureMapActions } from './engine.feature.types';
 
@@ -14,5 +13,6 @@ export {
   type EngineState,
   type EngineListener,
   type MapActions,
-  type FileSourceState,
 } from './engine';
+
+export { DataStore, type FileSourceState, DRAWN_SOURCE_ID } from './engine.dataStore';

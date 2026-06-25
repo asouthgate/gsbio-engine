@@ -37,7 +37,8 @@ function feature(
 function engineWith(initialFeature: DataFeature) {
   const engine = createSimulationEngine();
   engine.addFeature(initialFeature);
-  const actions = {
+    const actions = {
+    addFeatureToMap: vi.fn(),
     removeFeatureFromMap: vi.fn(),
     setFeatureVisibility: vi.fn(),
     updateFeatureGeometry: vi.fn(),

@@ -4,7 +4,8 @@ import type {
 } from './types';
 import { extractResultLayers } from './types';
 import { helloWorldModel } from './models/helloWorld';
-import { SourceRegistry } from './engine.sourceRegistry';
+import { DataStore } from './engine.dataStore';
+import type { FileSourceState } from './engine.dataStore';
 import { ModelRegistry } from './engine.modelRegistry';
 import { replaceGeometry } from './featureHelpers';
 import {
@@ -23,12 +24,14 @@ import {
   findRun as findRunInState,
   allSummaries as computeAllSummaries,
 } from './runHelpers';
-import type { EngineState, EngineListener, MapActions, FileSourceState } from './engine.types';
+import type { EngineState, EngineListener, MapActions } from './engine.types';
 import type { RunState } from './engine.runController.types';
 import type { FileSourceDef } from './engine.fileSource.types';
-export type { EngineState, EngineListener, MapActions, FileSourceState };
+export type { EngineState, EngineListener, MapActions };
+export { type FileSourceState };
 
 export class SimulationEngine {
+  public readonly dataStore: DataStore;
   private _state: EngineState;
   private readonly _listeners = new Set<EngineListener>();
   mapActions: MapActions | null = null;
@@ -37,7 +40,6 @@ export class SimulationEngine {
   private _currentRun: Promise<void> | null = null;
   autoShowResults = false;
 
-  public readonly dataSources = new SourceRegistry();
   public readonly models = new ModelRegistry();
 
   private _nextRunId = (): string =>
@@ -45,13 +47,13 @@ export class SimulationEngine {
       ? crypto.randomUUID()
       : `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-  constructor() {
+  constructor(dataStore?: DataStore) {
+    this.dataStore = dataStore ?? new DataStore();
     this.models.register(helloWorldModel);
     this._state = {
-      features: { features: [], selectedFeatureId: null },
+      features: this.dataStore.getSnapshot(),
       run: { current: null, history: [] },
       model: this.models.getInitialState('hello-world'),
-      fileSources: [],
     };
   }
 
@@ -61,61 +63,28 @@ export class SimulationEngine {
   };
 
   getSnapshot = (): EngineState => this._state;
-  private emit() { this._state = { ...this._state }; for (const l of this._listeners) l(); }
+
+  private emit() {
+    this._state = { ...this._state, features: this.dataStore.getSnapshot() };
+    for (const l of this._listeners) l();
+  }
 
   addFeature(feature: DataFeature): void {
-    this._state.features = {
-      ...this._state.features,
-      features: [...this._state.features.features, feature],
-    };
+    this.dataStore.addFeature(feature);
     const gj = this._withTerraDrawMode(feature);
     this.mapActions?.addFeatureToMap(feature.id, gj);
     this.emit();
   }
 
-  /** Register a file data source and bulk-add its parsed features.
-   *  Features are rendered on the map and grouped as a named source in the UI. */
-  addFileSourceFeatures(def: FileSourceDef, features: DataFeature[]): void {
-    const featureIds: string[] = [];
-    const existing = this._state.features.features;
-    const currentSource = this._state.fileSources.find((s) => s.sourceId === def.id);
-
-    if (currentSource) {
-      const oldIds = new Set(currentSource.featureIds);
-      const withoutOld = existing.filter((f) => !oldIds.has(f.id));
-      const added = [...withoutOld, ...features];
-      for (const f of features) {
-        this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
-      }
-      this._state.features = { ...this._state.features, features: added };
-      this._state.fileSources = this._state.fileSources.map((s) =>
-        s.sourceId === def.id ? { sourceId: def.id, name: def.name, featureIds: features.map((f) => f.id) } : s,
-      );
-    } else {
-      for (const f of features) {
-        featureIds.push(f.id);
-        this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
-      }
-      this._state.features = { ...this._state.features, features: [...existing, ...features] };
-      this._state.fileSources = [
-        ...this._state.fileSources,
-        { sourceId: def.id, name: def.name, featureIds },
-      ];
+  addFileSourceFeatures(def: FileSourceDef, data: object): DataFeature[] {
+    const parsed = this.dataStore.addGeoJsonSource(def, data);
+    for (const f of parsed) {
+      this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
     }
-
-    this.dataSources.register({
-      id: def.id,
-      name: def.name,
-      kind: 'upload',
-      featureIds: features.map((f) => f.id),
-    });
     this.emit();
+    return parsed;
   }
 
-  /** Inject the TerraDraw mode name into a store-entry shape
-   *  (`{ id, geometry, properties }`) so programmatically-added
-   *  features are accepted by draw.addFeatures() and rendered
-   *  with the correct tool style. */
   private _withTerraDrawMode(f: DataFeature): GeoJSON.Feature {
     const mode = `${f.geometryKind}__${f.category}`;
     const existing = f.geojson.properties ?? {};
@@ -128,50 +97,34 @@ export class SimulationEngine {
   }
 
   removeFeature(id: string): void {
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.filter((f) => f.id !== id),
-      selectedFeatureId: this._state.features.selectedFeatureId === id ? null : this._state.features.selectedFeatureId,
-    };
+    this.dataStore.removeFeature(id);
     this.mapActions?.removeFeatureFromMap(id);
     this.emit();
   }
 
   updateFeature(id: string, updates: Partial<DataFeature>): void {
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.map((f) =>
-        f.id === id ? { ...f, ...updates } : f,
-      ),
-    };
+    this.dataStore.updateFeature(id, updates);
     this.emit();
   }
 
   selectFeature(id: string | null): void {
-    this._state.features = { ...this._state.features, selectedFeatureId: id };
+    this.dataStore.selectFeature(id);
     this.emit();
   }
 
   clearFeatures(): void {
-    this._state.features = { features: [], selectedFeatureId: null };
+    this.dataStore.clearFeatures();
     this.emit();
   }
 
   private featureById(id: string): DataFeature | undefined {
-    return this._state.features.features.find((f) => f.id === id);
+    return this.dataStore.getFeature(id);
   }
 
   toggleFeatureVisibility(id: string): void {
-    const f = this.featureById(id);
-    if (!f) return;
-    const visible = !f.visible;
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.map((f) =>
-        f.id === id ? { ...f, visible } : f,
-      ),
-    };
-    this.mapActions?.setFeatureVisibility(id, visible, f.geojson);
+    const updated = this.dataStore.toggleVisibility(id);
+    if (!updated) return;
+    this.mapActions?.setFeatureVisibility(id, updated.visible, updated.geojson);
     this.emit();
   }
 
@@ -180,12 +133,7 @@ export class SimulationEngine {
     if (!f || !f.circle) return;
     const circle = { ...f.circle, ...patch };
     const geojson = replaceGeometry(f, circleToPolygon(circle.center, circle.radiusMeters).geometry);
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.map((f) =>
-        f.id === id ? { ...f, circle, geojson } : f,
-      ),
-    };
+    this.dataStore.replaceGeometry(id, geojson, circle);
     this.mapActions?.updateFeatureGeometry(id, geojson);
     this.emit();
   }
@@ -198,12 +146,7 @@ export class SimulationEngine {
     const lat = Math.round(lngLat.lat * fRatio) / fRatio;
     const geometry: GeoJSON.Geometry = { type: 'Point', coordinates: [lng, lat] };
     const geojson = replaceGeometry(f, geometry);
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.map((f) =>
-        f.id === id ? { ...f, geojson } : f,
-      ),
-    };
+    this.dataStore.replaceGeometry(id, geojson);
     this.mapActions?.updateFeatureGeometry(id, geojson);
     this.emit();
   }
@@ -212,12 +155,7 @@ export class SimulationEngine {
     const f = this.featureById(id);
     if (!f || f.geometryKind !== 'linestring') return;
     const geojson = replaceGeometry(f, lineStringToGeoJSONFeature(coords).geometry);
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.map((f) =>
-        f.id === id ? { ...f, geojson } : f,
-      ),
-    };
+    this.dataStore.replaceGeometry(id, geojson);
     this.mapActions?.updateFeatureGeometry(id, geojson);
     this.emit();
   }
@@ -226,12 +164,7 @@ export class SimulationEngine {
     const f = this.featureById(id);
     if (!f || f.geometryKind !== 'polygon') return;
     const geojson = replaceGeometry(f, polygonRingToGeoJSONFeature(ring).geometry);
-    this._state.features = {
-      ...this._state.features,
-      features: this._state.features.features.map((f) =>
-        f.id === id ? { ...f, geojson } : f,
-      ),
-    };
+    this.dataStore.replaceGeometry(id, geojson);
     this.mapActions?.updateFeatureGeometry(id, geojson);
     this.emit();
   }
@@ -395,7 +328,6 @@ export class SimulationEngine {
     const startedAt = Date.now();
 
     const exec = async (): Promise<void> => {
-      // Run request: push current to history, create empty record
       const record = emptyRunRecord(runId, modelId, params, startedAt);
       this._state.run = { ...pushCurrentToHistory(this._state.run), current: record };
       this.emit();
@@ -417,9 +349,8 @@ export class SimulationEngine {
         const executor = this._executors.get(modelId);
         if (!executor) throw new Error(`No executor registered for model "${modelId}"`);
 
-        const features: ReadonlyArray<DataFeature> = this._state.features.features;
+        const features: ReadonlyArray<DataFeature> = this.dataStore.getFeatures();
 
-        // Preprocess
         rawAppend('info', 'Preprocessing…');
         this._state.run = { ...this._state.run, current: setRunStatus(this._state.run.current!, 'preprocessing') };
         this.emit();
@@ -427,7 +358,6 @@ export class SimulationEngine {
 
         if (ac.signal.aborted) return;
 
-        // Submit
         rawAppend('info', 'Submitting…');
         this._state.run = { ...this._state.run, current: setRunStatus(this._state.run.current!, 'submitting') };
         this.emit();
@@ -490,6 +420,6 @@ export class SimulationEngine {
   cancelRun = (): void => { this._abort?.abort(); };
 }
 
-export function createSimulationEngine(): SimulationEngine {
-  return new SimulationEngine();
+export function createSimulationEngine(dataStore?: DataStore): SimulationEngine {
+  return new SimulationEngine(dataStore);
 }
