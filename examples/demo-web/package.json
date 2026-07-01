@@ -1,0 +1,26 @@
+{
+  "name": "@gsbio/demo-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && asc src/wasm/spread.ts -o src/wasm/spread.wasm --optimize --exportRuntime",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@gsbio/engine": "file:../../",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "assemblyscript": "^0.28.19",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0"
+  }
+}
