@@ -153,4 +153,5 @@ export interface RunSummary {
 export interface ResultLayerActions {
   addResultLayer: (runId: string, layerId: string, envelope: MapLayerEnvelope) => void;
   removeResultLayer: (runId: string, layerId: string) => void;
+  setRasterOpacity: (opacity: number) => void;
 }

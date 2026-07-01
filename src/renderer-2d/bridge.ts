@@ -42,6 +42,9 @@ export function wireEvents(
   };
 
   engine.setMapActions({
+    addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => {
+      try { draw.addFeatures([geojson as never]); } catch { /* ignore */ }
+    },
     removeFeatureFromMap: (id: string) => {
       try { draw.removeFeatures([id]); } catch { /* feature may not exist */ }
     },
@@ -62,6 +65,7 @@ export function wireEvents(
     },
     addResultLayer: (rid, lid, env) => mapManager.addResultLayer(rid, lid, env),
     removeResultLayer: (rid, lid) => mapManager.removeResultLayer(rid, lid),
+    setRasterOpacity: (opacity: number) => mapManager.setRasterOpacity(opacity),
   });
 
   draw.on('finish', (id) => {
@@ -98,6 +102,14 @@ export function wireEvents(
           };
         }
       }
+      const defaultData: Record<string, unknown> = {};
+      if (lastCategory === 'Building' || lastCategory === 'Lights' || lastCategory === 'LightString') {
+        defaultData.height = 10;
+      }
+      if (lastCategory === 'LightString') {
+        defaultData.spacing = 0;
+      }
+
       engine.addFeature({
         id: typeId,
         geometryKind: geometryKindForMode(lastMode ?? 'point'),
@@ -106,6 +118,7 @@ export function wireEvents(
         visible: true,
         geojson,
         ...(circle ? { circle } : {}),
+        ...(Object.keys(defaultData).length > 0 ? { data: defaultData } : {}),
       });
     }
     if (lastMode !== 'select') {

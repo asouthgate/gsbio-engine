@@ -91,9 +91,12 @@ export class TerraDraw2DRenderer implements Renderer {
     this.cleanupBridge = control.cleanup;
   }
 
+  getMap(): maplibregl.Map | null {
+    return this.mapManager?.instance ?? null;
+  }
+
   unmount(): void {
     this.cleanupBridge?.();
-    this.cleanupBridge = null;
     this.draw?.stop();
     this.draw = null;
     this.mapManager.unmount();
