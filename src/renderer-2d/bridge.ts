@@ -114,7 +114,13 @@ export function wireEvents(
           };
         }
       }
-      const defaultData: Record<string, unknown> = { ...defaultDataConfig?.[category] };
+      const defaultData: Record<string, unknown> = {};
+      if (lastCategory === 'Building' || lastCategory === 'Lights' || lastCategory === 'LightString') {
+        defaultData.height = 10;
+      }
+      if (lastCategory === 'LightString') {
+        defaultData.spacing = 0;
+      }
 
       engine.addFeature({
         id: typeId,

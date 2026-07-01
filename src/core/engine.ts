@@ -66,11 +66,6 @@ export class SimulationEngine {
 
   getSnapshot = (): EngineState => this._state;
 
-  setDrawMode(mode: DrawMode, category: string = ''): void {
-    this._state = { ...this._state, drawMode: { mode, category } };
-    this.emit();
-  }
-
   private emit() {
     this._state = { ...this._state, features: this.dataStore.getSnapshot() };
     for (const l of this._listeners) l();
@@ -381,13 +376,6 @@ export class SimulationEngine {
         if (this._abort === ac && !ac.signal.aborted) {
           const layers = extractResultLayers(result, runId);
           const layerIds = layers.map((l: { id: string }) => l.id);
-          const layerNames: Record<string, string> = {};
-          for (const l of layers) {
-            layerNames[l.id] = (l as { name?: string }).name ?? l.id;
-          }
-          const taskId = typeof result === 'object' && result !== null
-            ? (result as Record<string, unknown>).taskId as string | undefined
-            : undefined;
           this._state.run = { ...this._state.run, current: {
             ...this._state.run.current!,
             status: 'succeeded',
@@ -402,11 +390,7 @@ export class SimulationEngine {
           this.emit();
           rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerIds.length > 0) {
-            if (this.defaultLayerId && layerIds.includes(this.defaultLayerId)) {
-              this.showResultLayer(runId, this.defaultLayerId);
-            } else {
-              this.showResult(runId);
-            }
+            this.showResultLayer(runId, layerIds[layerIds.length - 1]);
           }
         }
       } catch (err) {

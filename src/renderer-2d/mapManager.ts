@@ -83,7 +83,7 @@ function registerPmtilesProtocol(
 export class MapManager {
   private map: maplibregl.Map | null = null;
   private resultLayers = new Map<string, string[]>();
-  private currentRasterOpacity = 1.0;
+  private currentRasterOpacity = 0.8;
 
   constructor(private readonly options: MapManagerOptions, private readonly resultPaint: Required<ResultPaint>) {}
 
