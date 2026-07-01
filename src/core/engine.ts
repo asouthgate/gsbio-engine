@@ -334,10 +334,10 @@ export class SimulationEngine {
 
       const rawAppend = (level: RunLogLevel, message: string): void => {
         if (!this._state.run.current) return;
-        this._state.run.current = {
+        this._state.run = { ...this._state.run, current: {
           ...this._state.run.current,
           log: [...this._state.run.current.log, { ts: Date.now(), level, message }],
-        };
+        }};
         this.emit();
       };
       const onLog = (level: RunLogLevel, message: string): void => {
@@ -365,7 +365,7 @@ export class SimulationEngine {
         const onProgress = (p: RunProgress): void => {
           if (!ac.signal.aborted && this._abort === ac && this._state.run.current) {
             const nextStatus = p.step === 'stream' ? 'running' : this._state.run.current.status;
-            this._state.run.current = { ...this._state.run.current, status: nextStatus, progress: p };
+            this._state.run = { ...this._state.run, current: { ...this._state.run.current, status: nextStatus, progress: p } };
             this.emit();
           }
         };
@@ -374,7 +374,7 @@ export class SimulationEngine {
         if (this._abort === ac && !ac.signal.aborted) {
           const layers = extractResultLayers(result, runId);
           const layerIds = layers.map((l: { id: string }) => l.id);
-          this._state.run.current = {
+          this._state.run = { ...this._state.run, current: {
             ...this._state.run.current!,
             status: 'succeeded',
             result,
@@ -382,25 +382,25 @@ export class SimulationEngine {
             layerIds,
             visibleLayerIds: [],
             visible: false,
-          };
+          }};
           this.emit();
           rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerIds.length > 0) {
-            this.showResult(runId);
+            this.showResultLayer(runId, layerIds[layerIds.length - 1]);
           }
         }
       } catch (err) {
         if (this._abort !== ac) return;
         if (ac.signal.aborted) {
           if (this._state.run.current) {
-            this._state.run.current = { ...this._state.run.current, status: 'cancelled', finishedAt: Date.now() };
+            this._state.run = { ...this._state.run, current: { ...this._state.run.current, status: 'cancelled', finishedAt: Date.now() } };
             this.emit();
           }
           rawAppend('info', 'Cancelled');
         } else {
           const message = err instanceof Error ? err.message : String(err);
           if (this._state.run.current) {
-            this._state.run.current = { ...this._state.run.current, status: 'failed', error: message, finishedAt: Date.now() };
+            this._state.run = { ...this._state.run, current: { ...this._state.run.current, status: 'failed', error: message, finishedAt: Date.now() } };
             this.emit();
           }
           rawAppend('error', message);
@@ -418,6 +418,10 @@ export class SimulationEngine {
   };
 
   cancelRun = (): void => { this._abort?.abort(); };
+
+  setResultOpacity = (opacity: number): void => {
+    this.mapActions?.setRasterOpacity(opacity);
+  };
 }
 
 export function createSimulationEngine(dataStore?: DataStore): SimulationEngine {

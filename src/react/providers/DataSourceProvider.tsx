@@ -16,13 +16,13 @@ const DataSourceContext = createContext<DataSourceContextValue>({
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
   const engine = useEngine();
-  useEngineState();
+  const state = useEngineState();
 
   const { sources, drawnSource } = useMemo(() => {
     const all = engine.dataStore.getSources();
     const drawn = all[0]!;
     return { sources: all, drawnSource: drawn };
-  }, [engine]);
+  }, [engine, state.features]);
 
   return (
     <DataSourceContext.Provider value={{ sources, drawnSource }}>
