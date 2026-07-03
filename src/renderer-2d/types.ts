@@ -1,3 +1,4 @@
+import type maplibregl from 'maplibre-gl';
 import type { GeometryKind } from '../core';
 
 export type DrawMode = 'select' | GeometryKind;
@@ -43,6 +44,8 @@ export interface TerraDraw2DOptions {
   zoom?: number;
   featureStyles?: FeatureStyleConfig;
   resultStyles?: ResultPaint;
+  transformRequest?: maplibregl.RequestTransformFunction;
+  getToken?: () => string | null;
 }
 
 export interface TerraDrawLike {

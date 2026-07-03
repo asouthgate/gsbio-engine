@@ -1,3 +1,5 @@
+import OSM_LIBERTY_STYLE from './osm_liberty.json';
+
 /**
  * Bare OSM raster style spec, the previous baked-in tile source. The object
  * is structurally compatible with maplibre-gl's `StyleSpecification`;
@@ -104,4 +106,38 @@ export const DARK_NOLABELS_STYLE = {
   },
   layers: [{ id: 'dark-layer', type: 'raster', source: 'dark' }],
 } as const;
+
+/**
+ * Build a MapLibre vector style that renders the PMTiles archive at
+ * `pmtilesUrl` using the OSM Liberty (OpenMapTiles schema) styling.
+ *
+ * The PMTiles archive must contain MVT/PBF vector tiles. We reuse the
+ * public OSM Liberty style, repoint its `openmaptiles` source at our
+ * `pmtiles://`-protocol URL (handled by `../renderer-2d/mapManager`), and
+ * drop the external Natural Earth raster relief source + its single
+ * layer since that raster is not bundled. Sprites and glyphs remain
+ * served from their public CDNs; fill/line/boundary layers render fully
+ * even if those remote assets are unreachable.
+ */
+export function createPmtilesStyle(pmtilesUrl: string) {
+  const { natural_earth_shaded_relief: _ne, ...sources } =
+    OSM_LIBERTY_STYLE.sources;
+  void _ne;
+
+  const layers = OSM_LIBERTY_STYLE.layers.filter(
+    (l) => l.source !== 'natural_earth_shaded_relief',
+  );
+
+  return {
+    ...OSM_LIBERTY_STYLE,
+    sources: {
+      ...sources,
+      openmaptiles: {
+        type: 'vector' as const,
+        tiles: [`pmtiles://${pmtilesUrl}/{z}/{x}/{y}`],
+      },
+    },
+    layers,
+  };
+}
 
