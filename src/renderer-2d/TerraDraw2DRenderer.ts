@@ -62,7 +62,7 @@ export class TerraDraw2DRenderer implements Renderer {
   async mount(container: HTMLElement, engineInstance: unknown): Promise<void> {
     const engine = engineInstance as SimulationEngine;
     this.mapManager = new MapManager(
-      { style: this.options.style, center: this.options.center, zoom: this.options.zoom, minZoom: this.options.minZoom, maxZoom: this.options.maxZoom, transformRequest: this.options.transformRequest, getToken: this.options.getToken, refreshToken: this.options.refreshToken },
+      { style: this.options.style, center: this.options.center, zoom: this.options.zoom, minZoom: this.options.minZoom, maxZoom: this.options.maxZoom, maxBounds: this.options.maxBounds, transformRequest: this.options.transformRequest, getToken: this.options.getToken, refreshToken: this.options.refreshToken },
       { ...DEFAULT_RESULT_PAINT, ...this.options.resultStyles },
     );
     const map = await this.mapManager.mount(container);

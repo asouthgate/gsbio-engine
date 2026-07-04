@@ -46,6 +46,8 @@ export interface TerraDraw2DOptions {
   minZoom?: number;
   /** Maximum map zoom (UI can't zoom in past this). */
   maxZoom?: number;
+  /** Restrict map panning to this bounding box. */
+  maxBounds?: maplibregl.LngLatBoundsLike;
   featureStyles?: FeatureStyleConfig;
   resultStyles?: ResultPaint;
   transformRequest?: maplibregl.RequestTransformFunction;

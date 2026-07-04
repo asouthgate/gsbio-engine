@@ -101,6 +101,7 @@ export class MapManager {
       zoom: this.options.zoom ?? 2,
       minZoom: this.options.minZoom,
       maxZoom: this.options.maxZoom,
+      maxBounds: this.options.maxBounds,
       transformRequest: this.options.transformRequest,
     });
     await new Promise<void>((resolve) => this.map!.on('load', () => resolve()));
