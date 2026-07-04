@@ -8,21 +8,39 @@ const pmtilesCache = new Map<string, PMTiles>();
 
 export interface MapManagerOptions extends TerraDraw2DOptions {
   transformRequest?: maplibregl.RequestTransformFunction;
-  getToken?: () => string | null;
+  getToken?: () => string | null | Promise<string | null>;
+  refreshToken?: () => Promise<string | null>;
 }
 
-function createAuthSource(url: string, getToken: () => string | null): Source {
+function createAuthSource(
+  url: string,
+  getToken: () => string | null | Promise<string | null>,
+  refreshToken?: () => Promise<string | null>,
+): Source {
   return {
     getKey: () => url,
     getBytes: async (offset: number, length: number, signal?: AbortSignal, etag?: string): Promise<RangeResponse> => {
-      const headers: Record<string, string> = {
-        Range: `bytes=${offset}-${offset + length - 1}`,
+      const buildHeaders = (token: string | null) => {
+        const headers: Record<string, string> = {
+          Range: `bytes=${offset}-${offset + length - 1}`,
+        };
+        if (etag) headers['If-Match'] = etag;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return headers;
       };
-      if (etag) headers['If-Match'] = etag;
-      const token = getToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const resp = await fetch(url, { headers, signal });
+
+      let resp = await fetch(url, { headers: buildHeaders(await getToken()), signal });
+
+      // Stale token: force a fresh one and retry once.
+      if (resp.status === 401 && refreshToken) {
+        const fresh = await refreshToken();
+        if (fresh) {
+          resp = await fetch(url, { headers: buildHeaders(fresh), signal });
+        }
+      }
+
       if (!resp.ok) throw new Error(`PMTiles fetch failed: ${resp.status} ${resp.statusText}`);
+
       const data = await resp.arrayBuffer();
       return {
         data,
@@ -33,7 +51,10 @@ function createAuthSource(url: string, getToken: () => string | null): Source {
   };
 }
 
-function registerPmtilesProtocol(getToken: () => string | null) {
+function registerPmtilesProtocol(
+  getToken: () => string | null | Promise<string | null>,
+  refreshToken?: () => Promise<string | null>,
+) {
   if (pmtilesProtocolRegistered) return;
 
   maplibregl.addProtocol('pmtiles', async (params, abortController) => {
@@ -47,7 +68,7 @@ function registerPmtilesProtocol(getToken: () => string | null) {
 
     let pmtiles = pmtilesCache.get(pmtilesUrl);
     if (!pmtiles) {
-      const source = createAuthSource(pmtilesUrl, getToken);
+      const source = createAuthSource(pmtilesUrl, getToken, refreshToken);
       pmtiles = new PMTiles(source);
       pmtilesCache.set(pmtilesUrl, pmtiles);
     }
@@ -70,7 +91,7 @@ export class MapManager {
     this.unmount();
 
     if (this.options.getToken) {
-      registerPmtilesProtocol(this.options.getToken);
+      registerPmtilesProtocol(this.options.getToken, this.options.refreshToken);
     }
 
     this.map = new maplibregl.Map({
@@ -78,6 +99,8 @@ export class MapManager {
       style: this.options.style,
       center: this.options.center ?? [0, 0],
       zoom: this.options.zoom ?? 2,
+      minZoom: this.options.minZoom,
+      maxZoom: this.options.maxZoom,
       transformRequest: this.options.transformRequest,
     });
     await new Promise<void>((resolve) => this.map!.on('load', () => resolve()));
