@@ -16,6 +16,7 @@
 import { PMTiles } from 'pmtiles';
 
 const API_BASE = process.argv[2] || 'http://localhost:8000';
+const PMTILES_FILE = process.argv[3] || 'test.pmtiles';
 
 async function getToken() {
   const res = await fetch(`${API_BASE}/api/auth/token`, { method: 'POST' });
@@ -92,7 +93,7 @@ async function main() {
   const token = await getToken();
   console.log(`  Token acquired (${token.length} chars)`);
 
-  const pmtilesUrl = `${API_BASE}/api/pmtiles/uk.pmtiles`;
+  const pmtilesUrl = `${API_BASE}/api/pmtiles/${PMTILES_FILE}`;
   const tokenFn = () => token;
 
   const header = await testHeaderRead(pmtilesUrl, tokenFn);
