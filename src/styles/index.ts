@@ -1,5 +1,3 @@
-import STYLE_TEMPLATE from './style-template.json';
+import OSM_LIBERTY_STYLE from './osm_liberty.json';
 
-export { STYLE_TEMPLATE };
-export type { MapPalette } from './palette';
-export { DEFAULT_PALETTE } from './palette';
+export { OSM_LIBERTY_STYLE };
