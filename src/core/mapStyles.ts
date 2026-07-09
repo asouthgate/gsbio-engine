@@ -127,8 +127,8 @@ export interface PmtilesStyleOptions {
  * Adapt a MapLibre vector style spec to render a PMTiles archive at
  * `pmtilesUrl`. The style is passed in (not imported) so consumers can
  * provide their own — e.g. a custom OSM Liberty variant from `frontend/` —
- * and override colours/layers freely. Use the exported `OSM_LIBERTY_STYLE`
- * from `@gsbio/engine` as a ready-made default.
+ * and override colours/layers freely. Use the exported `STYLE_TEMPLATE`
+ * from `@gsbio/engine` with `resolvePaletteTokens()` and `DEFAULT_PALETTE`
  *
  * The PMTiles archive must contain MVT/PBF vector tiles. This function
  * finds the vector source named `sourceName` (default `'openmaptiles'`) in
