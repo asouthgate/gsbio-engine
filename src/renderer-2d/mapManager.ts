@@ -1,21 +1,108 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { PMTiles, type Source, type RangeResponse } from 'pmtiles';
 import { TerraDraw2DOptions, ResultPaint } from './TerraDraw2DRenderer';
+
+let pmtilesProtocolRegistered = false;
+const pmtilesCache = new Map<string, PMTiles>();
+
+export interface MapManagerOptions extends TerraDraw2DOptions {
+  transformRequest?: maplibregl.RequestTransformFunction;
+  getToken?: () => string | null | Promise<string | null>;
+  refreshToken?: () => Promise<string | null>;
+}
+
+function createAuthSource(
+  url: string,
+  getToken: () => string | null | Promise<string | null>,
+  refreshToken?: () => Promise<string | null>,
+): Source {
+  return {
+    getKey: () => url,
+    getBytes: async (offset: number, length: number, signal?: AbortSignal, etag?: string): Promise<RangeResponse> => {
+      const buildHeaders = (token: string | null) => {
+        const headers: Record<string, string> = {
+          Range: `bytes=${offset}-${offset + length - 1}`,
+        };
+        if (etag) headers['If-Match'] = etag;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return headers;
+      };
+
+      let resp = await fetch(url, { headers: buildHeaders(await getToken()), signal });
+
+      // Stale token: force a fresh one and retry once.
+      if (resp.status === 401 && refreshToken) {
+        const fresh = await refreshToken();
+        if (fresh) {
+          resp = await fetch(url, { headers: buildHeaders(fresh), signal });
+        }
+      }
+
+      if (!resp.ok) throw new Error(`PMTiles fetch failed: ${resp.status} ${resp.statusText}`);
+
+      const data = await resp.arrayBuffer();
+      return {
+        data,
+        etag: resp.headers.get('etag') ?? undefined,
+        cacheControl: resp.headers.get('cache-control') ?? undefined,
+      };
+    },
+  };
+}
+
+function registerPmtilesProtocol(
+  getToken: () => string | null | Promise<string | null>,
+  refreshToken?: () => Promise<string | null>,
+) {
+  if (pmtilesProtocolRegistered) return;
+
+  maplibregl.addProtocol('pmtiles', async (params, abortController) => {
+    const raw = params.url.replace('pmtiles://', '');
+    const match = raw.match(/^(.+)\/(\d+)\/(\d+)\/(\d+)(?:\.\w+)?$/);
+    if (!match) throw new Error(`Invalid PMTiles tile URL: ${raw}`);
+    const pmtilesUrl = match[1];
+    const z = parseInt(match[2], 10);
+    const x = parseInt(match[3], 10);
+    const y = parseInt(match[4], 10);
+
+    let pmtiles = pmtilesCache.get(pmtilesUrl);
+    if (!pmtiles) {
+      const source = createAuthSource(pmtilesUrl, getToken, refreshToken);
+      pmtiles = new PMTiles(source);
+      pmtilesCache.set(pmtilesUrl, pmtiles);
+    }
+
+    const tile = await pmtiles.getZxy(z, x, y, abortController.signal);
+    return { data: tile?.data ?? new ArrayBuffer(0) };
+  });
+
+  pmtilesProtocolRegistered = true;
+}
 
 export class MapManager {
   private map: maplibregl.Map | null = null;
   private resultLayers = new Map<string, string[]>();
   private currentRasterOpacity = 0.8;
 
-  constructor(private readonly options: TerraDraw2DOptions, private readonly resultPaint: Required<ResultPaint>) {}
+  constructor(private readonly options: MapManagerOptions, private readonly resultPaint: Required<ResultPaint>) {}
 
   async mount(container: HTMLElement): Promise<maplibregl.Map> {
     this.unmount();
+
+    if (this.options.getToken) {
+      registerPmtilesProtocol(this.options.getToken, this.options.refreshToken);
+    }
+
     this.map = new maplibregl.Map({
       container,
       style: this.options.style,
       center: this.options.center ?? [0, 0],
       zoom: this.options.zoom ?? 2,
+      minZoom: this.options.minZoom,
+      maxZoom: this.options.maxZoom,
+      maxBounds: this.options.maxBounds,
+      transformRequest: this.options.transformRequest,
     });
     await new Promise<void>((resolve) => this.map!.on('load', () => resolve()));
     return this.map;

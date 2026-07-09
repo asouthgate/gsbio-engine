@@ -1,3 +1,4 @@
+import type maplibregl from 'maplibre-gl';
 import type { GeometryKind } from '../core';
 
 export type DrawMode = 'select' | GeometryKind;
@@ -41,8 +42,19 @@ export interface TerraDraw2DOptions {
   style: any;
   center?: [number, number];
   zoom?: number;
+  /** Minimum map zoom (UI can't zoom out past this). */
+  minZoom?: number;
+  /** Maximum map zoom (UI can't zoom in past this). */
+  maxZoom?: number;
+  /** Restrict map panning to this bounding box. */
+  maxBounds?: maplibregl.LngLatBoundsLike;
   featureStyles?: FeatureStyleConfig;
   resultStyles?: ResultPaint;
+  transformRequest?: maplibregl.RequestTransformFunction;
+  /** Returns a currently-valid bearer token, or null if none/unavailable. May be async. */
+  getToken?: () => string | null | Promise<string | null>;
+  /** Force-issues a fresh token after a 401; used for one-shot re-auth retry. */
+  refreshToken?: () => Promise<string | null>;
 }
 
 export interface TerraDrawLike {
