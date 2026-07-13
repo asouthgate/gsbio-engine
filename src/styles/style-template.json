@@ -1335,23 +1335,7 @@
         }
       }
     },
-    {
-      "id": "road_area_pattern",
-      "type": "fill",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "filter": [
-        "all",
-        [
-          "==",
-          "$type",
-          "Polygon"
-        ]
-      ],
-      "paint": {
-        "fill-pattern": "pedestrian_polygon"
-      }
-    },
+
     {
       "id": "road_motorway_link_casing",
       "type": "line",
@@ -2305,39 +2289,7 @@
         }
       }
     },
-    {
-      "id": "road_one_way_arrow",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "minzoom": 16,
-      "filter": [
-        "==",
-        "oneway",
-        1
-      ],
-      "layout": {
-        "icon-image": "arrow",
-        "symbol-placement": "line"
-      }
-    },
-    {
-      "id": "road_one_way_arrow_opposite",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "minzoom": 16,
-      "filter": [
-        "==",
-        "oneway",
-        -1
-      ],
-      "layout": {
-        "icon-image": "arrow",
-        "symbol-placement": "line",
-        "icon-rotate": 180
-      }
-    },
+
     {
       "id": "bridge_motorway_link_casing",
       "type": "line",
@@ -3249,31 +3201,12 @@
       "source": "openmaptiles",
       "source-layer": "building",
       "minzoom": 13,
-      "maxzoom": 14,
       "paint": {
         "fill-color": "$palette.building",
         "fill-outline-color": "$palette.building"
       }
     },
-    {
-      "id": "building-3d",
-      "type": "fill-extrusion",
-      "source": "openmaptiles",
-      "source-layer": "building",
-      "minzoom": 14,
-      "paint": {
-        "fill-extrusion-color": "$palette.building",
-        "fill-extrusion-height": {
-          "property": "render_height",
-          "type": "identity"
-        },
-        "fill-extrusion-base": {
-          "property": "render_min_height",
-          "type": "identity"
-        },
-        "fill-extrusion-opacity": 0.8
-      }
-    },
+
     {
       "id": "boundary_3",
       "type": "line",
@@ -3425,196 +3358,9 @@
         "text-halo-width": 0
       }
     },
-    {
-      "id": "poi_z16",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "poi",
-      "minzoom": 16,
-      "filter": [
-        "all",
-        [
-          "==",
-          "$type",
-          "Point"
-        ],
-        [
-          ">=",
-          "rank",
-          20
-        ]
-      ],
-      "layout": {
-        "icon-image": [
-          "match",
-          [
-            "get",
-            "subclass"
-          ],
-          [
-            "florist",
-            "furniture",
-            "soccer",
-            "tennis"
-          ],
-          [
-            "get",
-            "subclass"
-          ],
-          [
-            "get",
-            "class"
-          ]
-        ],
-        "text-anchor": "top",
-        "text-field": "{name}",
-        "text-font": [
-          "Roboto Condensed Italic"
-        ],
-        "text-max-width": 9,
-        "text-offset": [
-          0,
-          0.6
-        ],
-        "text-size": 12
-      },
-      "paint": {
-        "text-color": "$palette.label_minor",
-        "text-halo-blur": 0.5,
-        "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 0
-      }
-    },
-    {
-      "id": "poi_z15",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "poi",
-      "minzoom": 15,
-      "filter": [
-        "all",
-        [
-          "==",
-          "$type",
-          "Point"
-        ],
-        [
-          ">=",
-          "rank",
-          7
-        ],
-        [
-          "<",
-          "rank",
-          20
-        ]
-      ],
-      "layout": {
-        "icon-image": [
-          "match",
-          [
-            "get",
-            "subclass"
-          ],
-          [
-            "florist",
-            "furniture",
-            "soccer",
-            "tennis"
-          ],
-          [
-            "get",
-            "subclass"
-          ],
-          [
-            "get",
-            "class"
-          ]
-        ],
-        "text-anchor": "top",
-        "text-field": "{name}",
-        "text-font": [
-          "Roboto Condensed Italic"
-        ],
-        "text-max-width": 9,
-        "text-offset": [
-          0,
-          0.6
-        ],
-        "text-size": 12
-      },
-      "paint": {
-        "text-color": "$palette.label_minor",
-        "text-halo-blur": 0.5,
-        "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 0
-      }
-    },
-    {
-      "id": "poi_z14",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "poi",
-      "minzoom": 14,
-      "filter": [
-        "all",
-        [
-          "==",
-          "$type",
-          "Point"
-        ],
-        [
-          ">=",
-          "rank",
-          1
-        ],
-        [
-          "<",
-          "rank",
-          7
-        ]
-      ],
-      "layout": {
-        "icon-image": [
-          "match",
-          [
-            "get",
-            "subclass"
-          ],
-          [
-            "florist",
-            "furniture",
-            "soccer",
-            "tennis"
-          ],
-          [
-            "get",
-            "subclass"
-          ],
-          [
-            "get",
-            "class"
-          ]
-        ],
-        "text-anchor": "top",
-        "text-field": "{name}",
-        "text-font": [
-          "Roboto Condensed Italic"
-        ],
-        "text-max-width": 9,
-        "text-offset": [
-          0,
-          0.6
-        ],
-        "text-size": 12
-      },
-      "paint": {
-        "text-color": "$palette.label_minor",
-        "text-halo-blur": 0.5,
-        "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 0
-      }
-    },
+
+
+
     {
       "id": "poi_transit",
       "type": "symbol",
@@ -3690,50 +3436,7 @@
         "text-halo-width": 0
       }
     },
-    {
-      "id": "road_shield",
-      "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "transportation_name",
-      "minzoom": 7,
-      "filter": [
-        "all",
-        [
-          "<=",
-          "ref_length",
-          6
-        ]
-      ],
-      "layout": {
-        "icon-image": "default_{ref_length}",
-        "icon-rotation-alignment": "viewport",
-        "symbol-placement": {
-          "base": 1,
-          "stops": [
-            [
-              10,
-              "point"
-            ],
-            [
-              11,
-              "line"
-            ]
-          ]
-        },
-        "symbol-spacing": 500,
-        "text-field": "{ref}",
-        "text-font": [
-          "Roboto Regular"
-        ],
-        "text-offset": [
-          0,
-          0.1
-        ],
-        "text-rotation-alignment": "viewport",
-        "text-size": 10,
-        "icon-size": 0.8
-      }
-    },
+
     {
       "id": "place_other",
       "type": "symbol",
