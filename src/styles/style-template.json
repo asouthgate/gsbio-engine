@@ -3396,9 +3396,9 @@
         "symbol-placement": "line"
       },
       "paint": {
-        "text-color": "$palette.water",
+        "text-color": "$palette.label_main",
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3422,7 +3422,7 @@
       "paint": {
         "text-color": "$palette.water",
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3482,7 +3482,7 @@
         "text-color": "$palette.label_minor",
         "text-halo-blur": 0.5,
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3547,7 +3547,7 @@
         "text-color": "$palette.label_minor",
         "text-halo-blur": 0.5,
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3612,7 +3612,7 @@
         "text-color": "$palette.label_minor",
         "text-halo-blur": 0.5,
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3648,7 +3648,7 @@
         "text-color": "$palette.label_minor",
         "text-halo-blur": 0.5,
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3687,7 +3687,7 @@
       "paint": {
         "text-color": "$palette.label_minor",
         "text-halo-blur": 0.5,
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -3972,7 +3972,7 @@
       "paint": {
         "text-color": "$palette.label_main",
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     },
     {
@@ -4136,7 +4136,7 @@
       "paint": {
         "text-color": "$palette.label_main",
         "text-halo-color": "$palette.label_halo",
-        "text-halo-width": 1
+        "text-halo-width": 0
       }
     }
   ],
