@@ -397,7 +397,10 @@ export class SimulationEngine {
           this.emit();
           rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerIds.length > 0) {
-            this.showResultLayer(runId, layerIds[0]);
+            const preferred = this.defaultLayerId && layerIds.includes(this.defaultLayerId)
+              ? this.defaultLayerId
+              : layerIds[0];
+            this.showResultLayer(runId, preferred);
           }
         }
       } catch (err) {
