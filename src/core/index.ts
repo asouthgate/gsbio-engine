@@ -1,3 +1,4 @@
+export * from './resolution';
 export * from './types';
 export * from './spatial';
 export * from './models/helloWorld';

@@ -1,7 +1,7 @@
 import type maplibregl from 'maplibre-gl';
-import type { GeometryKind } from '../core';
+import type { GeometryKind, DrawMode } from '../core';
 
-export type DrawMode = 'select' | GeometryKind;
+export type { DrawMode };
 
 export interface ShapePaint {
   fillColor?: string;

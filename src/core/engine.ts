@@ -1,5 +1,5 @@
 import type {
-  Executor, DataFeature, CircleGeometry, ModelDef, ModelParams,
+  Executor, DataFeature, CircleGeometry, DrawMode, ModelDef, ModelParams,
   RunLogLevel, RunProgress, RunRecord, MapLayerEnvelope, RunSummary,
 } from './types';
 import { extractResultLayers } from './types';
@@ -24,7 +24,7 @@ import {
   findRun as findRunInState,
   allSummaries as computeAllSummaries,
 } from './runHelpers';
-import type { EngineState, EngineListener, MapActions } from './engine.types';
+import type { DrawState, EngineState, EngineListener, MapActions } from './engine.types';
 import type { RunState } from './engine.runController.types';
 import type { FileSourceDef } from './engine.fileSource.types';
 export type { EngineState, EngineListener, MapActions };
@@ -39,6 +39,7 @@ export class SimulationEngine {
   private _abort: AbortController | null = null;
   private _currentRun: Promise<void> | null = null;
   autoShowResults = false;
+  defaultLayerId: string | null = null;
 
   public readonly models = new ModelRegistry();
 
@@ -54,6 +55,7 @@ export class SimulationEngine {
       features: this.dataStore.getSnapshot(),
       run: { current: null, history: [] },
       model: this.models.getInitialState('hello-world'),
+      drawMode: { mode: 'select', category: '' },
     };
   }
 
@@ -63,6 +65,11 @@ export class SimulationEngine {
   };
 
   getSnapshot = (): EngineState => this._state;
+
+  setDrawMode(mode: DrawMode, category: string = ''): void {
+    this._state = { ...this._state, drawMode: { mode, category } };
+    this.emit();
+  }
 
   private emit() {
     this._state = { ...this._state, features: this.dataStore.getSnapshot() };
@@ -386,7 +393,10 @@ export class SimulationEngine {
           this.emit();
           rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerIds.length > 0) {
-            this.showResultLayer(runId, layerIds[0]);
+            const preferred = this.defaultLayerId && layerIds.includes(this.defaultLayerId)
+              ? this.defaultLayerId
+              : layerIds[0];
+            this.showResultLayer(runId, preferred);
           }
         }
       } catch (err) {
