@@ -381,10 +381,14 @@ export class SimulationEngine {
         if (this._abort === ac && !ac.signal.aborted) {
           const layers = extractResultLayers(result, runId);
           const layerIds = layers.map((l: { id: string }) => l.id);
+          const taskId = typeof result === 'object' && result !== null
+            ? (result as Record<string, unknown>).taskId as string | undefined
+            : undefined;
           this._state.run = { ...this._state.run, current: {
             ...this._state.run.current!,
             status: 'succeeded',
             result,
+            taskId,
             finishedAt: Date.now(),
             layerIds,
             visibleLayerIds: [],

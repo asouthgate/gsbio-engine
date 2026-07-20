@@ -120,6 +120,7 @@ export type RunProgressStep = 'preprocess' | 'submit' | 'stream';
 export interface RunRecord {
   runId: string;
   modelId: string;
+  taskId?: string;
   params: ModelParams;
   status: RunStatus;
   // null until the run succeeds
