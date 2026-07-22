@@ -115,10 +115,10 @@ export function wireEvents(
         }
       }
       const defaultData: Record<string, unknown> = {};
-      if (lastCategory === 'Building' || lastCategory === 'Lights' || lastCategory === 'LightString') {
+      if (category === 'Building' || category === 'Lights' || category === 'LightString') {
         defaultData.height = 10;
       }
-      if (lastCategory === 'LightString') {
+      if (category === 'LightString') {
         defaultData.spacing = 0;
       }
 
