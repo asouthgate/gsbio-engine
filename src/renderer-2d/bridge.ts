@@ -2,10 +2,11 @@ import {
   averageRadiusMeters,
   centroid,
   type DataFeature,
+  type DrawMode,
   type LngLat,
   type SimulationEngine,
 } from '../core';
-import type { DrawMode, TerraDrawLike } from './types';
+import type { TerraDrawLike } from './types';
 import { compositeModeName } from './styles';
 import type { MapManager } from './mapManager';
 
@@ -21,8 +22,6 @@ export function wireEvents(
   compositeModes: Map<string, { drawMode: DrawMode; category: string; style: unknown }>,
   geometryKindForMode: (mode: DrawMode) => DataFeature['geometryKind'],
 ): DrawControl & { cleanup: () => void } {
-  let lastMode: DrawMode | null = null;
-  let lastCategory: string | null = null;
 
   const resolveModeName = (mode: DrawMode, category: string): string => {
     if (mode === 'select') return 'select';
@@ -34,12 +33,20 @@ export function wireEvents(
     try { draw.setMode(resolveModeName(mode, category)); } catch { /* mode may not be ready */ }
   };
 
-  const applyCurrentMode = () => {
-    applyMode(
-      lastMode === 'select' || lastMode === null ? 'select' : lastMode,
-      lastCategory ?? '',
-    );
-  };
+  // Apply initial draw mode from engine state
+  let appliedMode: DrawMode = engine.getSnapshot().drawMode.mode;
+  let appliedCategory: string = engine.getSnapshot().drawMode.category;
+  applyMode(appliedMode, appliedCategory);
+
+  // Subscribe to engine to keep TerraDraw in sync
+  const unsubDraw = engine.subscribe(() => {
+    const dm = engine.getSnapshot().drawMode;
+    if (dm.mode !== appliedMode || dm.category !== appliedCategory) {
+      appliedMode = dm.mode;
+      appliedCategory = dm.category;
+      applyMode(dm.mode, dm.category);
+    }
+  });
 
   engine.setMapActions({
     addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => {
@@ -69,6 +76,10 @@ export function wireEvents(
   });
 
   draw.on('finish', (id) => {
+    const dm = engine.getSnapshot().drawMode;
+    const mode = dm.mode;
+    const category = dm.category;
+
     const feature = draw.getSnapshotFeature(id);
     if (!feature) return;
     const typeId = String(id);
@@ -91,7 +102,7 @@ export function wireEvents(
       }
     } else {
       let circle: { center: LngLat; radiusMeters: number } | undefined;
-      if (lastMode === 'circle') {
+      if (mode === 'circle') {
         const props = (geojson as { properties?: Record<string, unknown> }).properties ?? {};
         const geom = geojson.geometry as { type: string; coordinates: number[][][] };
         if (geom.type === 'Polygon' && Array.isArray(geom.coordinates[0]) && typeof props.radiusKilometers === 'number') {
@@ -103,28 +114,23 @@ export function wireEvents(
         }
       }
       const defaultData: Record<string, unknown> = {};
-      if (lastCategory === 'Building' || lastCategory === 'Lights' || lastCategory === 'LightString') {
+      if (category === 'Building' || category === 'Lights' || category === 'LightString') {
         defaultData.height = 10;
       }
-      if (lastCategory === 'LightString') {
+      if (category === 'LightString') {
         defaultData.spacing = 0;
       }
 
       engine.addFeature({
         id: typeId,
-        geometryKind: geometryKindForMode(lastMode ?? 'point'),
-        category: lastCategory ?? '',
+        geometryKind: geometryKindForMode(mode),
+        category,
         label: '',
         visible: true,
         geojson,
         ...(circle ? { circle } : {}),
         ...(Object.keys(defaultData).length > 0 ? { data: defaultData } : {}),
       });
-    }
-    if (lastMode !== 'select') {
-      lastMode = 'select';
-      lastCategory = null;
-      applyCurrentMode();
     }
   });
 
@@ -141,22 +147,18 @@ export function wireEvents(
   });
 
   const startDrawing = (mode: DrawMode, category: string = '') => {
-    lastMode = mode;
-    lastCategory = category;
-    applyCurrentMode();
+    engine.setDrawMode(mode, category);
   };
 
   const selectMode = () => {
-    lastMode = 'select';
-    lastCategory = null;
-    applyCurrentMode();
+    engine.setDrawMode('select', '');
   };
-
-  applyCurrentMode();
 
   return {
     startDrawing,
     selectMode,
-    cleanup: () => {},
+    cleanup: () => {
+      unsubDraw();
+    },
   };
 }

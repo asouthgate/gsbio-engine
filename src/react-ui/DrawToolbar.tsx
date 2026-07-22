@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
+import { useEngine, useEngineState } from '../react';
 import type { DrawMode } from '../renderer-2d';
 
 export interface DrawTool {
@@ -26,32 +27,22 @@ const MODE_ICONS: Record<string, string> = {
 export interface DrawToolbarProps {
   className?: string;
   tools?: readonly DrawTool[];
-  onStartDrawing?: (mode: DrawMode, category?: string) => void;
-  onSelectMode?: () => void;
 }
 
 export function DrawToolbar({
   className = 'draw-toolbar',
   tools = DEFAULT_DRAW_TOOLS,
-  onStartDrawing,
-  onSelectMode,
 }: DrawToolbarProps) {
-  const [activeMode, setActiveMode] = useState<DrawMode>('select');
-  const [activeLabel, setActiveLabel] = useState<string>('Select');
+  const engine = useEngine();
+  const { drawMode } = useEngineState();
 
   const isActive = (mode: DrawMode, label: string): boolean => {
-    if (mode === 'select') return activeMode === 'select';
-    return activeMode === mode && activeLabel === label;
+    if (mode === 'select') return drawMode.mode === 'select';
+    return drawMode.mode === mode && drawMode.category === label;
   };
 
   const handle = (mode: DrawMode, label: string) => {
-    setActiveMode(mode);
-    setActiveLabel(label);
-    if (mode === 'select') {
-      onSelectMode?.();
-    } else {
-      onStartDrawing?.(mode, label);
-    }
+    engine.setDrawMode(mode, label);
   };
 
   let separatorPlaced = false;

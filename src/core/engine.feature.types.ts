@@ -2,6 +2,8 @@ import type { LngLat } from './spatial';
 
 export type GeometryKind = 'point' | 'linestring' | 'polygon' | 'circle';
 
+export type DrawMode = 'select' | GeometryKind;
+
 export interface CircleGeometry {
   center: LngLat;
   radiusMeters: number;

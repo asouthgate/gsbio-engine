@@ -1,7 +1,9 @@
+export * from './resolution';
 export * from './types';
 export * from './spatial';
 export * from './models/helloWorld';
 export * from './mapStyles';
+export * from './resolvePalette';
 export * from './stubExecutor';
 export * from './engine.fileSource.types';
 
