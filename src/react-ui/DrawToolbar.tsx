@@ -37,13 +37,14 @@ export function DrawToolbar({
   const engine = useEngine();
   const { drawMode } = useEngineState();
 
-  const isActive = (mode: DrawMode, label: string): boolean => {
+  const isActive = (mode: DrawMode, label: string, category?: string): boolean => {
+    const cat = category ?? label;
     if (mode === 'select') return drawMode.mode === 'select';
-    return drawMode.mode === mode && drawMode.category === label;
+    return drawMode.mode === mode && drawMode.category === cat;
   };
 
-  const handle = (mode: DrawMode, label: string) => {
-    engine.setDrawMode(mode, label);
+  const handle = (mode: DrawMode, label: string, category?: string) => {
+    engine.setDrawMode(mode, category ?? label);
   };
 
   let separatorPlaced = false;
