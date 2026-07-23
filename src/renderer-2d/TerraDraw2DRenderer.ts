@@ -85,6 +85,7 @@ export class TerraDraw2DRenderer implements Renderer {
       this.mapManager,
       this.compositeModes,
       this.geometryKindForMode.bind(this),
+      this.options.defaultData,
     );
 
     this._drawControl = control;
