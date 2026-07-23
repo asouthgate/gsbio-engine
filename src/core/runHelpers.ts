@@ -10,7 +10,7 @@ import type { RunState } from './engine.runController.types';
 export function emptyRunRecord(runId: string, modelId: string, params: ModelParams, startedAt: number): RunRecord {
   return {
     runId, modelId, params, status: 'idle', result: null, error: null, progress: null,
-    startedAt, finishedAt: null, log: [], layerIds: [], visibleLayerIds: [], visible: false,
+    startedAt, finishedAt: null, log: [], layerIds: [], layerNames: {}, visibleLayerIds: [], visible: false,
   };
 }
 
@@ -74,7 +74,7 @@ export function toSummary(rec: RunRecord): RunSummary {
     runId: rec.runId, modelId: rec.modelId, status: rec.status, error: rec.error, progress: rec.progress,
     startedAt: rec.startedAt, finishedAt: rec.finishedAt, log: rec.log,
     warnings: rec.log.filter((e: RunLogEntry) => e.level === 'warning').map((e: RunLogEntry) => e.message),
-    layerIds: rec.layerIds, visibleLayerIds: rec.visibleLayerIds, visible, partial,
+    layerIds: rec.layerIds, layerNames: rec.layerNames, visibleLayerIds: rec.visibleLayerIds, visible, partial,
   };
 }
 

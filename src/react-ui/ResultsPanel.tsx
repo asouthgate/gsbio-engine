@@ -136,7 +136,7 @@ function RunRow({
                     checked={checked}
                     onChange={() => onToggleLayer(layerId)}
                   />
-                  <span className="run-item__layer-id">{layerId}</span>
+                  <span className="run-item__layer-id">{rec.layerNames?.[layerId] ?? layerId}</span>
                 </label>
               </li>
             );

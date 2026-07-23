@@ -6,6 +6,7 @@ export interface DrawTool {
   mode: DrawMode;
   label: string;
   icon?: ReactNode;
+  category?: string;
 }
 
 export const DEFAULT_DRAW_TOOLS: readonly DrawTool[] = [
@@ -36,13 +37,14 @@ export function DrawToolbar({
   const engine = useEngine();
   const { drawMode } = useEngineState();
 
-  const isActive = (mode: DrawMode, label: string): boolean => {
+  const isActive = (mode: DrawMode, label: string, category?: string): boolean => {
+    const cat = category ?? label;
     if (mode === 'select') return drawMode.mode === 'select';
-    return drawMode.mode === mode && drawMode.category === label;
+    return drawMode.mode === mode && drawMode.category === cat;
   };
 
-  const handle = (mode: DrawMode, label: string) => {
-    engine.setDrawMode(mode, label);
+  const handle = (mode: DrawMode, label: string, category?: string) => {
+    engine.setDrawMode(mode, category ?? label);
   };
 
   let separatorPlaced = false;
@@ -56,8 +58,8 @@ export function DrawToolbar({
           <span key={i} style={{ display: 'contents' }}>
             {showSep && <span className="draw-toolbar-separator" />}
             <button
-              className={`draw-btn draw-btn--${t.mode} ${isActive(t.mode, t.label) ? 'active' : ''}`}
-              onClick={() => handle(t.mode, t.label)}
+              className={`draw-btn draw-btn--${t.mode} ${isActive(t.mode, t.label, t.category) ? 'active' : ''}`}
+              onClick={() => handle(t.mode, t.label, t.category)}
               title={t.label}
             >
               <span className="draw-btn-icon">{t.icon ?? MODE_ICONS[t.mode]}</span>

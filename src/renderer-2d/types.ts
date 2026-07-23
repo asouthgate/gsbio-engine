@@ -55,6 +55,8 @@ export interface TerraDraw2DOptions {
   getToken?: () => string | null | Promise<string | null>;
   /** Force-issues a fresh token after a 401; used for one-shot re-auth retry. */
   refreshToken?: () => Promise<string | null>;
+  /** Default data fields to merge into new features keyed by category. */
+  defaultData?: Record<string, Record<string, number>>;
 }
 
 export interface TerraDrawLike {

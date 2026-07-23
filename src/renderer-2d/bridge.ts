@@ -21,6 +21,7 @@ export function wireEvents(
   mapManager: MapManager,
   compositeModes: Map<string, { drawMode: DrawMode; category: string; style: unknown }>,
   geometryKindForMode: (mode: DrawMode) => DataFeature['geometryKind'],
+  defaultDataConfig?: Record<string, Record<string, number>>,
 ): DrawControl & { cleanup: () => void } {
 
   const resolveModeName = (mode: DrawMode, category: string): string => {
@@ -113,13 +114,7 @@ export function wireEvents(
           };
         }
       }
-      const defaultData: Record<string, unknown> = {};
-      if (category === 'Building' || category === 'Lights' || category === 'LightString') {
-        defaultData.height = 10;
-      }
-      if (category === 'LightString') {
-        defaultData.spacing = 0;
-      }
+      const defaultData: Record<string, unknown> = { ...defaultDataConfig?.[category] };
 
       engine.addFeature({
         id: typeId,

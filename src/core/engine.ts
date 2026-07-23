@@ -381,6 +381,10 @@ export class SimulationEngine {
         if (this._abort === ac && !ac.signal.aborted) {
           const layers = extractResultLayers(result, runId);
           const layerIds = layers.map((l: { id: string }) => l.id);
+          const layerNames: Record<string, string> = {};
+          for (const l of layers) {
+            layerNames[l.id] = (l as { name?: string }).name ?? l.id;
+          }
           const taskId = typeof result === 'object' && result !== null
             ? (result as Record<string, unknown>).taskId as string | undefined
             : undefined;
@@ -391,6 +395,7 @@ export class SimulationEngine {
             taskId,
             finishedAt: Date.now(),
             layerIds,
+            layerNames,
             visibleLayerIds: [],
             visible: false,
           }};
