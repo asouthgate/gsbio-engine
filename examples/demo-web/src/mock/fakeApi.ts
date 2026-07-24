@@ -1,8 +1,8 @@
 /**
- * Mock API server — a Vite dev-server middleware plugin.
+ * Mock API server. A Vite dev-server middleware plugin.
  *
  * Provides the network-transport surface that the `radialSpreadApi`
- * executor's `submit` glue talks to — without requiring the dev to run a
+ * executor's `submit` glue talks to without requiring the dev to run a
  * separate backend process. `pnpm dev` spins it up on the same port as
  * Vite (5180); no orchestrator changes, no new runtime deps.
  *
@@ -16,7 +16,7 @@
  *               progress: 0..1,
  *               tilesUrl?: string }
  *   POST /api/spread/run/:id/cancel
- *     best-effort; status becomes 'cancelled'
+ *     status becomes 'cancelled'
  *   GET /tiles/spread/:runId/:z/:x/:y.png
  *     procedural XYZ raster tile (256×256 RGBA PNG) shaded with the same
  *     distance-decay warm ramp as the WASM archetype
@@ -135,8 +135,6 @@ function encodePng(width: number, height: number, rgba: Buffer): Buffer {
     pngChunk('IEND', Buffer.alloc(0)),
   ]);
 }
-
-/* ------------------------------- Routing ------------------------------- */
 
 function matchRunRoute(url: string): { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null {
   const u = new URL(url, 'http://localhost');

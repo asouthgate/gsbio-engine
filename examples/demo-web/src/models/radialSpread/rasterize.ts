@@ -1,16 +1,5 @@
 /**
- * Radial Spread — raw rasterisation glue (WASM → image envelope).
- *
- * The AssemblyScript kernel in `examples/demo-web/src/wasm/spread.ts` fills the
- * `N × N` RGBA distance-shaded ramp; this module just shepherds the wasm
- * bytes back into an `ImageData`, bakes it onto a throwaway canvas, and
- * returns the PNG data URL the executor wraps in one (reused) `image`
- * envelope per circle. No engine imports here — the executor glue in
- * `./executor.ts` calls this and attaches the geo `bounds`.
- *
- * The kernel's fill is identical for every circle (a centred distance field),
- * so `renderRadialRaster` is called once per run and the resulting data URL
- * is shared by every circle's envelope.
+ * Radial Spread rasterisation wrapper
  */
 
 import {

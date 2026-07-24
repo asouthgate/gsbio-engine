@@ -1,5 +1,4 @@
-/** Wait `ms`, rejecting with `AbortError` if `signal` fires first. Shared
- *  helper — every demo executor that simulates work uses this. */
+/** Wait `ms`, rejecting with `AbortError` if `signal` fires first. */
 export function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {

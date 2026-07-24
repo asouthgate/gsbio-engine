@@ -14,7 +14,6 @@ import type {
   PreprocessResult,
   ResultLayerEntry,
   RunResult,
-  SimulationEngine,
   SubmitContext
 } from '@gsbio/engine';
 import { circleBounds, selectSpreadZones, type Zone } from '../shared';
@@ -49,7 +48,7 @@ export const radialSpreadExecutor: Executor = {
       return {
         layers: [] as ResultLayerEntry[],
         summary: { count: 0, zoneIds: [] as string[] },
-      };
+      } satisfies RunResult;
     }
     // The wasm kernel returns a PNG data URL of the centred radial ramp.
     const url = renderRadialRaster(resolution);
@@ -64,10 +63,3 @@ export const radialSpreadExecutor: Executor = {
     } satisfies RunResult;
   },
 };
-
-/** One-call installer: register the model, bind its executor, select it. */
-export function installRadialSpread(engine: SimulationEngine): void {
-  engine.registerModel(radialSpreadModel);
-  engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
-  engine.setModel(radialSpreadModel.id);
-}

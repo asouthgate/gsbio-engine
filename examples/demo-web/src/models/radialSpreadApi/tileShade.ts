@@ -1,13 +1,5 @@
 /**
- * Radial Spread (API) — per-tile rasteriser (used by the mock API server).
- *
- * Shades a 256×256 XYZ raster tile by the same distance-shaded warm ramp as
- * the WASM kernel (`examples/demo-web/src/wasm/spread.ts`), so the two
- * archetypes are visually identical. For each sampled block, find the
- * nearest drawn circle (by great-circle distance in metres); if inside its
- * radius, shade by `t = 1 − dist/radius` (1 at the centre → 0 at the edge),
- * otherwise transparent. Returns a PNG `Buffer` the mock server streams to
- * the renderer.
+ * Radial Spread (API): per-tile rasteriser (used by the mock API server).
  */
 
 export interface CircleSpec {
@@ -19,8 +11,7 @@ export interface CircleSpec {
 const TILE_SIZE = 256;
 const EARTH_R_M = 6_371_000;
 
-/** Great-circle distance in metres (equirectangular approximation good enough
- *  for short hops on a single map tile). */
+/** Great-circle distance in metres */
 function haversineM(
   a: { lng: number; lat: number },
   b: { lng: number; lat: number },
