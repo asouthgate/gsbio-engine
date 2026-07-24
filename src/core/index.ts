@@ -11,7 +11,7 @@ export { type DataFeature, type CircleGeometry, type FeatureMapActions } from '.
 
 export {
   SimulationEngine,
-  createSimulationEngine,
+  createEngine,
   type EngineState,
   type EngineListener,
   type MapActions,

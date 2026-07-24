@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { EngineProvider } from '../react';
 import { ResultsPanel } from './ResultsPanel';
-import { createSimulationEngine } from '../core';
+import { createEngine } from '../core';
 import type { SimulationEngine, RunResultLayers } from '../core';
 
 function setupEngine(engine: SimulationEngine) {
@@ -46,7 +46,7 @@ function makeSucceededRunWithLayers(engine: SimulationEngine, runId: string, lay
 
 describe('ResultsPanel download', () => {
   it('renders download button when onDownload is provided and a run succeeded with layers', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'run-1', 2);
 
@@ -63,7 +63,7 @@ describe('ResultsPanel download', () => {
   });
 
   it('does not render download button when onDownload is omitted', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'run-1', 1);
 
@@ -77,7 +77,7 @@ describe('ResultsPanel download', () => {
   });
 
   it('does not render download button for failed runs', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     setupEngine(engine);
 
     const record = {
@@ -111,7 +111,7 @@ describe('ResultsPanel download', () => {
   });
 
   it('calls onDownload with the correct runId on click', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'run-abc', 1);
 
@@ -128,7 +128,7 @@ describe('ResultsPanel download', () => {
   });
 
   it('renders download for each succeeded run with layers in history', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'run-a', 1);
     makeSucceededRunWithLayers(engine, 'run-b', 1);

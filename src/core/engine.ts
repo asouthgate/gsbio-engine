@@ -221,7 +221,7 @@ export class SimulationEngine {
   private resolveRunLayers(runId: string): Map<string, MapLayerEnvelope> {
     const rec = this.findRun(runId);
     if (!rec || !rec.result) return new Map();
-    return new Map(extractResultLayers(rec.result, runId).map((l) => [l.id, l.envelope]));
+    return new Map(extractResultLayers(rec.result).map((l) => [l.id, l.envelope]));
   }
 
   showResult = (runId: string): void => {
@@ -379,15 +379,13 @@ export class SimulationEngine {
         const result = await executor.submit({ modelId, params, payload, onProgress, onLog }, ac.signal);
 
         if (this._abort === ac && !ac.signal.aborted) {
-          const layers = extractResultLayers(result, runId);
+          const layers = extractResultLayers(result);
           const layerIds = layers.map((l: { id: string }) => l.id);
           const layerNames: Record<string, string> = {};
           for (const l of layers) {
             layerNames[l.id] = (l as { name?: string }).name ?? l.id;
           }
-          const taskId = typeof result === 'object' && result !== null
-            ? (result as Record<string, unknown>).taskId as string | undefined
-            : undefined;
+          const taskId = (result as Record<string, unknown>).taskId as string | undefined;
           this._state.run = { ...this._state.run, current: {
             ...this._state.run.current!,
             status: 'succeeded',
@@ -444,6 +442,6 @@ export class SimulationEngine {
   };
 }
 
-export function createSimulationEngine(dataStore?: DataStore): SimulationEngine {
+export function createEngine(dataStore?: DataStore): SimulationEngine {
   return new SimulationEngine(dataStore);
 }

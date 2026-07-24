@@ -1,13 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createSimulationEngine } from '@gsbio/engine';
-import { AppProvider } from '@gsbio/engine';
+import { createEngine } from '@gsbio/engine';
+import { GsbioEngineProvider } from '@gsbio/engine';
 import { App } from './components/App';
 import { radialSpreadModel, radialSpreadExecutor } from './models/radialSpread';
 import { radialSpreadApiModel, radialSpreadApiExecutor } from './models/radialSpreadApi';
 import './styles/index.css';
 
-const engine = createSimulationEngine();
+const engine = createEngine();
 engine.registerModel(radialSpreadModel);
 engine.registerExecutor(radialSpreadModel.id, radialSpreadExecutor);
 
@@ -20,8 +20,8 @@ engine.autoShowResults = true;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppProvider engine={engine}>
+    <GsbioEngineProvider engine={engine}>
       <App />
-    </AppProvider>
+    </GsbioEngineProvider>
   </StrictMode>,
 );

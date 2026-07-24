@@ -4,11 +4,11 @@
 import { describe, it, expect} from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { EngineProvider, useFeatures, useModel } from './useEngine';
-import { createSimulationEngine } from '../core';
+import { createEngine } from '../core';
 
 describe('Engine Hooks', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <EngineProvider engine={createSimulationEngine()}>
+    <EngineProvider engine={createEngine()}>
       {children}
     </EngineProvider>
   );
@@ -37,7 +37,7 @@ describe('Engine Hooks', () => {
   });
 
   it('correctly dispatches model actions to the engine', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     engine.registerModel({ id: 'model_a', name: 'Test Model', params: [] });
     const wrapper = ({ children }: { children: React.ReactNode }) => (
         <EngineProvider engine={engine}>{children}</EngineProvider>
@@ -55,7 +55,7 @@ describe('Engine Hooks', () => {
 
   it('maintains independent state per provider', () => {
     const customWrapper = ({ children }: { children: React.ReactNode }) => (
-      <EngineProvider engine={createSimulationEngine()}>{children}</EngineProvider>
+      <EngineProvider engine={createEngine()}>{children}</EngineProvider>
     );
 
     const hook1 = renderHook(() => useFeatures(), { wrapper: customWrapper });

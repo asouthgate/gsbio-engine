@@ -9,7 +9,8 @@ import {
   memory as wasmMemory,
 } from '../../wasm/spread.wasm';
 
-/** Fill the radial ramp via the wasm kernel and return the PNG data URL. */
+/** Fill the radial ramp via the wasm kernel and return the PNG data URL.
+ *  The canvas acts as a built-in PNG encoder for the raw RGBA pixel buffer. */
 export function renderRadialRaster(n: number): string {
   wasmSetup(n);
   wasmFillRadial(n);

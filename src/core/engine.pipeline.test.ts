@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  createSimulationEngine,
+  createEngine,
   type Executor,
 } from './index';
 import type { MapActions } from './engine.types';
@@ -73,10 +73,13 @@ function makeProvider(opts?: {
         throw new Error(opts.fail);
       }
       return {
-        layer: {
-          kind: 'geojson' as const,
-          data: { type: 'FeatureCollection' as const, features: [] },
-        },
+        layers: [{
+          id: 'default',
+          envelope: {
+            kind: 'geojson' as const,
+            data: { type: 'FeatureCollection' as const, features: [] },
+          },
+        }],
         summary: { ok: true },
       };
     },
@@ -94,8 +97,8 @@ function makeProvider(opts?: {
  * @returns An object containing the simulation engine instance and the mock map actions.
  * 
  */
-function engineWithRun(): { engine: ReturnType<typeof createSimulationEngine>; actions: MapActions } {
-  const engine = createSimulationEngine();
+function engineWithRun(): { engine: ReturnType<typeof createEngine>; actions: MapActions } {
+  const engine = createEngine();
   // This engine has no features drawn,
   // it is only used via the executor's
   // run pipeline for testing the run lifecycle.
@@ -125,7 +128,10 @@ describe('run pipeline', () => {
     const run = engine.getSnapshot().run.current!;
     expect(run.status).toBe('succeeded');
     expect(run.result).toEqual({
-      layer: { kind: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+      layers: [{
+        id: 'default',
+        envelope: { kind: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+      }],
       summary: { ok: true },
     });
     expect(calls.preprocess).toBe(1);
@@ -292,7 +298,7 @@ describe('run pipeline', () => {
       async submit(_ctx, signal) {
         void _ctx;
         await delay(5, signal);
-        return { summary: { only: true } }; // no layers
+        return { layers: [], summary: { only: true } }; // no layers
       },
     };
     engine.registerExecutor('hello-world', provider);
@@ -340,7 +346,7 @@ describe('run pipeline', () => {
       async submit(_ctx, signal) {
         void _ctx;
         await delay(5, signal);
-        return { summary: { only: true } };
+        return { layers: [], summary: { only: true } };
       },
     };
     engine.registerExecutor('hello-world', provider);
@@ -363,7 +369,10 @@ describe('run pipeline', () => {
         ctx.onLog?.('info', 'submit body');
         void await delay(2, signal);
         return {
-          layer: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } },
+          layers: [{
+            id: 'default',
+            envelope: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } },
+          }],
           summary: { ok: true },
         };
       },
@@ -409,7 +418,7 @@ describe('run pipeline', () => {
     const { engine } = engineWithRun();
     const providerGood: Executor = {
       async preprocess(c, s) { c.onLog?.('info', 'started preprocess'); await delay(50, s); return { payload: null }; },
-      async submit(c, s) { c.onLog?.('info', 'submitting'); void await delay(2, s); return { layer: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } }, summary: {} }; },
+        async submit(c, s) { c.onLog?.('info', 'submitting'); void await delay(2, s); return { layers: [{ id: 'default', envelope: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } } }], summary: {} }; },
     };
     engine.registerExecutor('hello-world', providerGood);
     const first = engine.run();

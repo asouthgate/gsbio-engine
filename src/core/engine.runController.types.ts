@@ -36,11 +36,8 @@ export interface SubmitContext {
 }
 
 
-export type RunResult = unknown;
-export interface RunResultEnvelope {
-  layer: MapLayerEnvelope;
-  summary?: unknown;
-}
+export type RunResult = { layers: ResultLayerEntry[]; summary?: unknown };
+
 export interface ResultLayerEntry {
   id: string;
   name?: string;
@@ -53,47 +50,14 @@ export interface RunResultLayers {
 }
 
 
-// Runtime type guard
-function isMapLayerEnvelope(v: unknown): v is MapLayerEnvelope {
-  return typeof v === 'object' && v !== null && typeof (v as Record<string, unknown>).kind === 'string';
-}
-
-/** Narrow a `RunResult` into a list of addressable result layers. Handles
- *  the three conventions: explicit `{ layers }`, the single-layer
- *  shorthand (bare envelope or `{ layer }`), and the zero-layer case. The
- *  single-layer shorthand yields one entry whose `id` is `defaultId` (the
- *  caller passes the run id). */
-export function extractResultLayers(
-  result: RunResult,
-  defaultId = 'default',
-): ResultLayerEntry[] {
-  if (!isMapLayerEnvelope(result)) {
-    if (typeof result === 'object' && result !== null) {
-      const r = result as Record<string, unknown>;
-      const layers = r.layers;
-      if (Array.isArray(layers)) {
-        const out: ResultLayerEntry[] = [];
-        for (const item of layers) {
-          if (typeof item !== 'object' || item === null) continue;
-          const it = item as Record<string, unknown>;
-          if (typeof it.id === 'string' && isMapLayerEnvelope(it.envelope)) {
-            out.push({ id: it.id, name: typeof it.name === 'string' ? it.name : undefined, envelope: it.envelope });
-          }
-        }
-        return out;
-      }
-      if (isMapLayerEnvelope(r.layer)) {
-        return [{ id: defaultId, envelope: r.layer }];
-      }
-    }
-    return [];
+export function extractResultLayers(result: RunResult): ResultLayerEntry[] {
+  const out: ResultLayerEntry[] = [];
+  for (const item of result.layers) {
+    if (typeof item !== 'object' || item === null) continue;
+    if (typeof item.id !== 'string' || typeof item.envelope?.kind !== 'string') continue;
+    out.push(item);
   }
-  return [{ id: defaultId, envelope: result }];
-}
-
-export function extractLayerEnvelope(result: RunResult): MapLayerEnvelope | null {
-  const layers = extractResultLayers(result);
-  return layers.length > 0 ? layers[0]!.envelope : null;
+  return out;
 }
 
 export interface Executor {

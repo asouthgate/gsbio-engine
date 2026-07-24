@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  createSimulationEngine,
+  createEngine,
   type CircleGeometry,
   type EngineState,
   type LngLat,
@@ -24,7 +24,7 @@ export interface EngineProviderProps {
 }
 
 export function EngineProvider({ engine, children }: EngineProviderProps) {
-  const value = useMemo(() => engine ?? createSimulationEngine(), [engine]);
+  const value = useMemo(() => engine ?? createEngine(), [engine]);
   return <EngineContext.Provider value={value}>{children}</EngineContext.Provider>;
 }
 

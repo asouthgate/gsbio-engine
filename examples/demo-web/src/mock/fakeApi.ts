@@ -3,7 +3,7 @@
  *
  * Provides the network-transport surface that the `radialSpreadApi`
  * executor's `submit` glue talks to without requiring the dev to run a
- * separate backend process. `pnpm dev` spins it up on the same port as
+ * separate backend process. `npm run dev` spins it up on the same port as
  * Vite (5180); no orchestrator changes, no new runtime deps.
  *
  * Endpoints:
@@ -22,7 +22,7 @@
  *     distance-decay warm ramp as the WASM archetype
  *
  * The "compute" is deliberately trivial (the per-tile shader in
- * `../models/radialSpreadApi/tileShade.ts` runs on demand per tile request);
+ * `./tileShade.ts` runs on demand per tile request);
  * the simulated multi-second latency between progress ticks exercises the
  * poll-and-progress loop without doing meaningful work up front. Replace
  * this server with a real backend and the executor's contract stays the same.
@@ -30,7 +30,7 @@
 
 import type { Plugin } from 'vite';
 import { deflateSync } from 'node:zlib';
-import { shadeTileRgba, type CircleSpec } from '../models/radialSpreadApi/tileShade';
+import { shadeTileRgba, type CircleSpec } from './tileShade';
 
 interface RunState {
   status: 'pending' | 'completed' | 'cancelled';
@@ -40,7 +40,6 @@ interface RunState {
   completedAt: number | null;
   durationMs: number;
   circles: CircleSpec[];
-  blocks: number;
 }
 
 const RUN_DURATION_MS = 3000;
@@ -84,7 +83,7 @@ function json(res: import('http').ServerResponse, status: number, body: unknown)
 
 /* ------------------------------- PNG encoder ----------------------------- */
 // Tiny standalone RGBA PNG encoder. zlib provides deflate (built into Node).
-// CRC32 is hand-rolled because the baby bite doesn't deserve a dep.
+// CRC32 is hand-rolled because this small encoder doesn't warrant a dependency.
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -168,7 +167,7 @@ export function fakeApiServerPlugin(): Plugin {
               res.end();
               return;
             }
-            const rgba = shadeTileRgba(r.circles, tile.z, tile.x, tile.y, r.blocks);
+            const rgba = shadeTileRgba(r.circles, tile.z, tile.x, tile.y);
             const png = encodePng(256, 256, rgba);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'image/png');
@@ -183,14 +182,13 @@ export function fakeApiServerPlugin(): Plugin {
                 return;
               }
               const body = await readBody(req);
-              const data = JSON.parse(body || '{}') as { zones?: Array<{ id: string; center: { lng: number; lat: number }; radiusMeters: number }>; resolution?: number };
+              const data = JSON.parse(body || '{}') as { zones?: Array<{ id: string; center: { lng: number; lat: number }; radiusMeters: number }> };
               const zones = (data.zones ?? []).filter(
                 (z): z is CircleSpec =>
                   typeof z.center?.lng === 'number' &&
                   typeof z.center?.lat === 'number' &&
                   typeof z.radiusMeters === 'number',
               );
-              const blocks = typeof data.resolution === 'number' && data.resolution > 0 ? data.resolution : 8;
               const id = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
               const tilesUrl = `/tiles/spread/${id}/{z}/{x}/{y}.png`;
               runs.set(id, {
@@ -201,7 +199,6 @@ export function fakeApiServerPlugin(): Plugin {
                 completedAt: null,
                 durationMs: RUN_DURATION_MS,
                 circles: zones,
-                blocks,
               });
               scheduleRun(id);
               json(res, 200, { runId: id });
