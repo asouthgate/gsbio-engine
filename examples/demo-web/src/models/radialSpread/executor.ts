@@ -1,20 +1,21 @@
 /**
- * Executor for the Radial Spread model — WebAssembly compute.
+ * Executor for the Radial Spread model with WebAssembly compute.
  *
- * Bound to the model by id at install time. `preprocess` filters the drawn
- * `Spread_zone` circles; `submit` invokes the wasm kernel once to fill the
- * radial ramp, then emits one `image` envelope per circle (the raster is a
- * centred distance field and identical for every circle, so it is rendered
- * once and reused — only each circle's geo `bounds` differ). A single honest
- * progress tick is emitted on completion; the kernel itself is a synchronous
- * main-thread call and cannot be interrupted mid-fill.
+ * An Executor must implement:
+ *  - `preprocess(ctx: PreprocessContext, signal: AbortSignal)`
+ *      which must return PreprocessResult or Promise<PreprocessResult>;
+ *  - `submit`: must return Promise<RunResult>
+ * 
  */
 
 import type {
   Executor,
+  PreprocessContext,
+  PreprocessResult,
   ResultLayerEntry,
   RunResult,
   SimulationEngine,
+  SubmitContext
 } from '@gsbio/engine';
 import { circleBounds, selectSpreadZones, type Zone } from '../shared';
 import { radialSpreadModel } from './model';
@@ -26,18 +27,22 @@ interface RadialSpreadPayload {
 }
 
 export const radialSpreadExecutor: Executor = {
-  async preprocess(ctx, signal) {
+  // Step 1: preprocess
+  async preprocess(ctx: PreprocessContext, signal: AbortSignal) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
     const zones = selectSpreadZones(ctx.features);
     if (zones.length === 0) {
-      ctx.onLog?.('warning', 'No Spread_zone circles drawn — submit will produce zero result layers.');
+      ctx.onLog?.('warning', 'No Spread_zone circles drawn: submit will produce zero result layers.');
     }
-    const resolution =
-      ctx.params.resolution ?? radialSpreadModel.params[0]!.default;
-    return { payload: { zones, resolution } };
-  },
 
-  async submit(ctx, signal) {
+    const resolution = ctx.params.resolution ?? radialSpreadModel.params[0]!.default;
+    return { 
+      payload: { zones, resolution }
+    } satisfies PreprocessResult;
+  },
+  // Step 2: submission handler
+  async submit(ctx: SubmitContext, signal: AbortSignal) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
     const { zones, resolution } = ctx.payload as RadialSpreadPayload;
     if (zones.length === 0) {
