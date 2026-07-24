@@ -2,8 +2,7 @@
 
 An open-source engine for biological spatial modelling on maps (or other manifolds).
 
-For usage, see `docs/USAGE.md`. For architecture, see `architecture.md`.
-To build/run the examples, see `examples/README.md`.
+For usage, see `docs/USAGE.md`.
 
 # Build
 

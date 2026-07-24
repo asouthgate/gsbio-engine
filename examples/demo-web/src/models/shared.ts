@@ -1,8 +1,8 @@
 /**
  * Shared helpers for the two radial-spread demo archetypes (WASM compute and
  * mock-API compute). Both consume the same drawn `Spread_zone` circle category
- * and pin one image/tile raster per circle to the same equirectangular bounds,
- * so the only visible difference between the archetypes is the compute path.
+ * and produce `image` envelopes via the same renderRadialRaster; the only
+ * difference between the archetypes is the compute path (direct vs. API poll).
  */
 
 import type { DataFeature } from '@gsbio/engine';

@@ -24,11 +24,18 @@ jobs:
       - name: Build Engine Core
         run: npm run build
 
+      - name: Test Engine Core
+        run: npm test
+
       - name: Install Example dependencies
         run: npm ci --prefix examples/demo-web
 
       - name: Build Example App
         run: npm run build --prefix examples/demo-web
+
+      - name: Integration test (requires backend — disabled by default)
+        if: false
+        run: node test_pmtiles_engine.mjs http://localhost:8000 test.pmtiles
 
       - name: Upload demo-web build artifact
         uses: actions/upload-artifact@v4
