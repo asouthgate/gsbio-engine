@@ -8,7 +8,7 @@ export const radialSpreadApiModel: ModelDef = {
   id: 'radial-spread-api',
   name: 'Radial Spread (API)',
   description:
-    'Just another example'
+    'Just another example',
   params: [
     {
       key: 'resolution',
