@@ -1,2 +1,2 @@
 export { radialSpreadApiModel } from './model';
-export { radialSpreadApiExecutor, installRadialSpreadApi } from './executor';
+export { radialSpreadApiExecutor } from './executor';

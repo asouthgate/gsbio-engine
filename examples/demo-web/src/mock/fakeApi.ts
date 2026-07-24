@@ -1,36 +1,15 @@
 /**
- * Mock API server — a Vite dev-server middleware plugin.
+ * Mock API server. A Vite dev-server middleware plugin.
  *
  * Provides the network-transport surface that the `radialSpreadApi`
- * executor's `submit` glue talks to — without requiring the dev to run a
- * separate backend process. `pnpm dev` spins it up on the same port as
- * Vite (5180); no orchestrator changes, no new runtime deps.
+ * executor's `submit` glue talks to without requiring the dev to run a
+ * separate backend process. `npm run dev` spins it up.
  *
- * Endpoints:
- *
- *   POST /api/spread/run
- *     body: { zones: { id, center:{lng,lat}, radiusMeters }[] }
- *     returns { runId }
- *   GET /api/spread/run/:id
- *     returns { status: 'pending'|'completed'|'cancelled',
- *               progress: 0..1,
- *               tilesUrl?: string }
- *   POST /api/spread/run/:id/cancel
- *     best-effort; status becomes 'cancelled'
- *   GET /tiles/spread/:runId/:z/:x/:y.png
- *     procedural XYZ raster tile (256×256 RGBA PNG) shaded with the same
- *     distance-decay warm ramp as the WASM archetype
- *
- * The "compute" is deliberately trivial (the per-tile shader in
- * `../models/radialSpreadApi/tileShade.ts` runs on demand per tile request);
- * the simulated multi-second latency between progress ticks exercises the
- * poll-and-progress loop without doing meaningful work up front. Replace
- * this server with a real backend and the executor's contract stays the same.
  */
 
 import type { Plugin } from 'vite';
 import { deflateSync } from 'node:zlib';
-import { shadeTileRgba, type CircleSpec } from '../models/radialSpreadApi/tileShade';
+import { shadeTileRgba, type CircleSpec } from './tileShade';
 
 interface RunState {
   status: 'pending' | 'completed' | 'cancelled';
@@ -40,7 +19,6 @@ interface RunState {
   completedAt: number | null;
   durationMs: number;
   circles: CircleSpec[];
-  blocks: number;
 }
 
 const RUN_DURATION_MS = 3000;
@@ -82,10 +60,8 @@ function json(res: import('http').ServerResponse, status: number, body: unknown)
   res.end(JSON.stringify(body));
 }
 
-/* ------------------------------- PNG encoder ----------------------------- */
-// Tiny standalone RGBA PNG encoder. zlib provides deflate (built into Node).
-// CRC32 is hand-rolled because the baby bite doesn't deserve a dep.
-
+// Standard RGBA PNG encoder. zlib provides deflate (built into Node).
+// CRC32 is hand-rolled because we don't want another dep.
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -136,9 +112,9 @@ function encodePng(width: number, height: number, rgba: Buffer): Buffer {
   ]);
 }
 
-/* ------------------------------- Routing ------------------------------- */
-
-function matchRunRoute(url: string): { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null {
+function matchRunRoute(url: string):
+  { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null 
+{
   const u = new URL(url, 'http://localhost');
   if (u.pathname === '/api/spread/run') return { kind: 'create' };
   const poll = u.pathname.match(/^\/api\/spread\/run\/([^/]+)$/);
@@ -170,7 +146,7 @@ export function fakeApiServerPlugin(): Plugin {
               res.end();
               return;
             }
-            const rgba = shadeTileRgba(r.circles, tile.z, tile.x, tile.y, r.blocks);
+            const rgba = shadeTileRgba(r.circles, tile.z, tile.x, tile.y);
             const png = encodePng(256, 256, rgba);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'image/png');
@@ -185,14 +161,13 @@ export function fakeApiServerPlugin(): Plugin {
                 return;
               }
               const body = await readBody(req);
-              const data = JSON.parse(body || '{}') as { zones?: Array<{ id: string; center: { lng: number; lat: number }; radiusMeters: number }>; resolution?: number };
+              const data = JSON.parse(body || '{}') as { zones?: Array<{ id: string; center: { lng: number; lat: number }; radiusMeters: number }> };
               const zones = (data.zones ?? []).filter(
                 (z): z is CircleSpec =>
                   typeof z.center?.lng === 'number' &&
                   typeof z.center?.lat === 'number' &&
                   typeof z.radiusMeters === 'number',
               );
-              const blocks = typeof data.resolution === 'number' && data.resolution > 0 ? data.resolution : 8;
               const id = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
               const tilesUrl = `/tiles/spread/${id}/{z}/{x}/{y}.png`;
               runs.set(id, {
@@ -203,7 +178,6 @@ export function fakeApiServerPlugin(): Plugin {
                 completedAt: null,
                 durationMs: RUN_DURATION_MS,
                 circles: zones,
-                blocks,
               });
               scheduleRun(id);
               json(res, 200, { runId: id });
@@ -223,7 +197,6 @@ export function fakeApiServerPlugin(): Plugin {
               json(res, 200, { ok: true });
               return;
             }
-            // poll
             if (req.method !== 'GET') {
               json(res, 405, { error: 'method not allowed' });
               return;

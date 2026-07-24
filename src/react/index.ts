@@ -7,8 +7,8 @@
 
 export { EngineProvider, useEngine, useEngineState, useFeatures, useModel, useRun, useResults } from './useEngine';
 export type { EngineProviderProps, FeatureHook, ModelHook, RunHook, ResultsHook } from './useEngine';
-export { AppProvider } from './AppProvider';
-export type { AppProviderProps } from './AppProvider';
+export { GsbioEngineProvider } from './GsbioEngineProvider';
+export type { GsbioEngineProviderProps } from './GsbioEngineProvider';
 export { Canvas } from './Canvas';
 export type { CanvasProps } from './Canvas';
 export { DataSourceProvider, useDataSources } from './providers/DataSourceProvider';

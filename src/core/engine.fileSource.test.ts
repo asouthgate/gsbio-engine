@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createSimulationEngine } from './engine';
+import { createEngine } from './engine';
 import { parseGeoJsonToFeatures } from './engine.fileSource';
 import { DRAWN_SOURCE_ID } from './engine.dataStore';
 import type { FileSourceDef } from './engine.fileSource.types';
 
 
 function mockEngine() {
-  const engine = createSimulationEngine();
+  const engine = createEngine();
   const actions = {
     addFeatureToMap: vi.fn(),
     removeFeatureFromMap: vi.fn(),

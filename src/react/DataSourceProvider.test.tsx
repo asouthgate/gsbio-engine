@@ -5,12 +5,12 @@ import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { EngineProvider } from './useEngine';
 import { DataSourceProvider, useDataSources } from './providers/DataSourceProvider';
-import { createSimulationEngine } from '../core';
+import { createEngine } from '../core';
 import { DRAWN_SOURCE_ID } from '../core/engine.dataStore';
 
 describe('DataSourceProvider', () => {
   function wrapper({ children }: { children: React.ReactNode }) {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     return (
       <EngineProvider engine={engine}>
         <DataSourceProvider>
@@ -21,7 +21,7 @@ describe('DataSourceProvider', () => {
   }
 
   it('includes drawn features in drawnSource after addFeature', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     const wrapp = ({ children }: { children: React.ReactNode }) => (
       <EngineProvider engine={engine}>
         <DataSourceProvider>
@@ -50,7 +50,7 @@ describe('DataSourceProvider', () => {
   });
 
   it('does not assign uploaded feature IDs to drawnSource', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     const wrapp = ({ children }: { children: React.ReactNode }) => (
       <EngineProvider engine={engine}>
         <DataSourceProvider>
@@ -83,7 +83,7 @@ describe('DataSourceProvider', () => {
   });
 
   it('recomputes sources when features change', () => {
-    const engine = createSimulationEngine();
+    const engine = createEngine();
     const wrapp = ({ children }: { children: React.ReactNode }) => (
       <EngineProvider engine={engine}>
         <DataSourceProvider>

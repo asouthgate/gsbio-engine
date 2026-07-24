@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  createSimulationEngine,
+  createEngine,
   type DataFeature,
   type LngLat,
 } from './index';
@@ -35,7 +35,7 @@ function feature(
 }
 
 function engineWith(initialFeature: DataFeature) {
-  const engine = createSimulationEngine();
+  const engine = createEngine();
   engine.addFeature(initialFeature);
     const actions = {
     addFeatureToMap: vi.fn(),
