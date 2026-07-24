@@ -1,23 +1,18 @@
-/**
- * Radial Spread (API): demo model.
- */
-
 import type { ModelDef } from '@gsbio/engine';
 
 export const radialSpreadApiModel: ModelDef = {
   id: 'radial-spread-api',
   name: 'Radial Spread (API)',
-  description:
-    'Just another example',
+  description: 'Runs via a simulated backend API (same compute, different path).',
   params: [
     {
       key: 'resolution',
-      label: 'Tile sample blocks',
+      label: 'Raster resolution (px)',
       type: 'range',
-      min: 4,
-      max: 32,
-      step: 4,
-      default: 8,
+      min: 16,
+      max: 128,
+      step: 8,
+      default: 64,
     },
   ],
 };

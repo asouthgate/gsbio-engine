@@ -31,7 +31,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['examples/**/*.tsx', 'packages/react/**/*.tsx'],
+    files: ['examples/**/*.tsx'],
     extends: [
       reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,

@@ -310,7 +310,7 @@ export interface FeatureListProps {
 }
 
 export function FeatureList({ className = 'data-section' }: FeatureListProps) {
-  const { sources } = useDataSources();
+  const sources = useDataSources();
   return (
     <div className={className}>
       {sources.map((source) => <SourceBlock key={source.id} source={source} />)}

@@ -19,6 +19,7 @@
     "build": "tsup",
     "lint": "eslint src/",
     "test": "vitest run",
+    "test:integration": "node test_pmtiles_engine.mjs",
     "build:example": "npm run build --prefix examples/demo-web",
     "dev:example": "npm run dev --prefix examples/demo-web",
     "build:all": "npm run build && npm run build:example",

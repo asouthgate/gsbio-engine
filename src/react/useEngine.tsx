@@ -14,6 +14,7 @@ import {
   type RunSummary,
   type SimulationEngine,
   type DataFeature,
+  type DataSourceDef,
 } from '../core';
 
 const EngineContext = createContext<SimulationEngine | null>(null);
@@ -135,4 +136,10 @@ export function useResults(): ResultsHook {
     clearResult: engine.clearResult,
     clearAll: engine.clearAllResults,
   };
+}
+
+export function useDataSources(): DataSourceDef[] {
+  const engine = useEngine();
+  const { features } = useEngineState();
+  return useMemo(() => engine.dataStore.getSources(), [engine, features]);
 }

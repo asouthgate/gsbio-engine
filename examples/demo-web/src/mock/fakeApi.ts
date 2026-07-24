@@ -2,23 +2,32 @@
  * Mock API server. A Vite dev-server middleware plugin.
  *
  * Provides the network-transport surface that the `radialSpreadApi`
- * executor's `submit` glue talks to without requiring the dev to run a
- * separate backend process. `npm run dev` spins it up.
+ * executor's `submit` glue talks to without requiring a separate backend
+ * process. `npm run dev` spins it up on the same port as Vite (5180).
  *
+ * Endpoints:
+ *
+ *   POST /api/spread/run
+ *     body: { zones: { id, center, radiusMeters }[] }
+ *     returns { runId }
+ *   GET /api/spread/run/:id
+ *     returns { status: 'pending'|'completed'|'cancelled', progress: 0..1 }
+ *   POST /api/spread/run/:id/cancel
+ *     status becomes 'cancelled'
+ *
+ * The "compute" happens client-side (same renderRadialRaster as the WASM
+ * archetype). This server only simulates network latency so the executor's
+ * poll-and-progress loop has something to exercise. Replace with a real
+ * backend API and the executor interface stays the same.
  */
 
 import type { Plugin } from 'vite';
-import { deflateSync } from 'node:zlib';
-import { shadeTileRgba, type CircleSpec } from './tileShade';
 
 interface RunState {
   status: 'pending' | 'completed' | 'cancelled';
   progress: number;
-  tilesUrl: string | null;
   startedAt: number;
-  completedAt: number | null;
   durationMs: number;
-  circles: CircleSpec[];
 }
 
 const RUN_DURATION_MS = 3000;
@@ -38,7 +47,6 @@ function scheduleRun(runId: string): void {
     if (elapsed >= cur.durationMs) {
       cur.status = 'completed';
       cur.progress = 1;
-      cur.completedAt = Date.now();
       return;
     }
     setTimeout(tick, PROGRESS_TICK_MS);
@@ -48,9 +56,7 @@ function scheduleRun(runId: string): void {
 
 async function readBody(req: import('http').IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
-  for await (const c of req) {
-    chunks.push(c as Buffer);
-  }
+  for await (const c of req) chunks.push(c as Buffer);
   return Buffer.concat(chunks).toString('utf-8');
 }
 
@@ -60,61 +66,7 @@ function json(res: import('http').ServerResponse, status: number, body: unknown)
   res.end(JSON.stringify(body));
 }
 
-// Standard RGBA PNG encoder. zlib provides deflate (built into Node).
-// CRC32 is hand-rolled because we don't want another dep.
-const CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n >>> 0;
-    for (let k = 0; k < 8; k++) c = c & 1 ? (0xedb88320 ^ (c >>> 1)) >>> 0 : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
-
-function crc32(buf: Buffer): number {
-  let c = 0xffffffff >>> 0;
-  for (let i = 0; i < buf.length; i++) c = (CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8)) >>> 0;
-  return (c ^ 0xffffffff) >>> 0;
-}
-
-function pngChunk(type: string, data: Buffer): Buffer {
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length, 0);
-  const typeBuf = Buffer.from(type, 'ascii');
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])), 0);
-  return Buffer.concat([len, typeBuf, data, crc]);
-}
-
-function encodePng(width: number, height: number, rgba: Buffer): Buffer {
-  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // RGBA
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
-  const stride = width * 4;
-  const raw = Buffer.alloc((stride + 1) * height);
-  for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0; // filter = none
-    rgba.copy(raw, y * (stride + 1) + 1, y * stride, y * stride + stride);
-  }
-  const idat = deflateSync(raw);
-  return Buffer.concat([
-    sig,
-    pngChunk('IHDR', ihdr),
-    pngChunk('IDAT', idat),
-    pngChunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-function matchRunRoute(url: string):
-  { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null 
-{
+function matchRoute(url: string): { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null {
   const u = new URL(url, 'http://localhost');
   if (u.pathname === '/api/spread/run') return { kind: 'create' };
   const poll = u.pathname.match(/^\/api\/spread\/run\/([^/]+)$/);
@@ -124,102 +76,45 @@ function matchRunRoute(url: string):
   return null;
 }
 
-function matchTileRoute(url: string): { runId: string; z: number; x: number; y: number } | null {
-  const u = new URL(url, 'http://localhost');
-  const m = u.pathname.match(/^\/tiles\/spread\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
-  if (!m) return null;
-  return { runId: m[1], z: parseInt(m[2], 10), x: parseInt(m[3], 10), y: parseInt(m[4], 10) };
-}
-
 export function fakeApiServerPlugin(): Plugin {
   return {
     name: 'gsbio-fake-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = req.url ?? '';
+        const route = matchRoute(url);
+        if (!route) { next(); return; }
+
         try {
-          const tile = matchTileRoute(url);
-          if (tile) {
-            const r = runs.get(tile.runId);
-            if (!r || !r.circles.length) {
-              res.statusCode = 404;
-              res.end();
-              return;
-            }
-            const rgba = shadeTileRgba(r.circles, tile.z, tile.x, tile.y);
-            const png = encodePng(256, 256, rgba);
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'image/png');
-            res.end(png);
+          if (route.kind === 'create') {
+            if (req.method !== 'POST') { json(res, 405, { error: 'method not allowed' }); return; }
+            await readBody(req);
+            const id = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            runs.set(id, {
+              status: 'pending',
+              progress: 0,
+              startedAt: Date.now(),
+              durationMs: RUN_DURATION_MS,
+            });
+            scheduleRun(id);
+            json(res, 200, { runId: id });
             return;
           }
-          const route = matchRunRoute(url);
-          if (route) {
-            if (route.kind === 'create') {
-              if (req.method !== 'POST') {
-                json(res, 405, { error: 'method not allowed' });
-                return;
-              }
-              const body = await readBody(req);
-              const data = JSON.parse(body || '{}') as { zones?: Array<{ id: string; center: { lng: number; lat: number }; radiusMeters: number }> };
-              const zones = (data.zones ?? []).filter(
-                (z): z is CircleSpec =>
-                  typeof z.center?.lng === 'number' &&
-                  typeof z.center?.lat === 'number' &&
-                  typeof z.radiusMeters === 'number',
-              );
-              const id = `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-              const tilesUrl = `/tiles/spread/${id}/{z}/{x}/{y}.png`;
-              runs.set(id, {
-                status: 'pending',
-                progress: 0,
-                tilesUrl,
-                startedAt: Date.now(),
-                completedAt: null,
-                durationMs: RUN_DURATION_MS,
-                circles: zones,
-              });
-              scheduleRun(id);
-              json(res, 200, { runId: id });
-              return;
-            }
-            if (route.kind === 'cancel') {
-              if (req.method !== 'POST') {
-                json(res, 405, { error: 'method not allowed' });
-                return;
-              }
-              const r = runs.get(route.id);
-              if (!r) {
-                json(res, 404, { error: 'unknown run' });
-                return;
-              }
-              r.status = 'cancelled';
-              json(res, 200, { ok: true });
-              return;
-            }
-            if (req.method !== 'GET') {
-              json(res, 405, { error: 'method not allowed' });
-              return;
-            }
+          if (route.kind === 'cancel') {
+            if (req.method !== 'POST') { json(res, 405, { error: 'method not allowed' }); return; }
             const r = runs.get(route.id);
-            if (!r) {
-              json(res, 404, { error: 'unknown run' });
-              return;
-            }
-            if (r.status === 'completed') {
-              json(res, 200, { status: 'completed', progress: 1, tilesUrl: r.tilesUrl });
-            } else if (r.status === 'cancelled') {
-              json(res, 200, { status: 'cancelled', progress: r.progress });
-            } else {
-              json(res, 200, { status: 'pending', progress: r.progress });
-            }
+            if (!r) { json(res, 404, { error: 'unknown run' }); return; }
+            r.status = 'cancelled';
+            json(res, 200, { ok: true });
             return;
           }
+          if (req.method !== 'GET') { json(res, 405, { error: 'method not allowed' }); return; }
+          const r = runs.get(route.id);
+          if (!r) { json(res, 404, { error: 'unknown run' }); return; }
+          json(res, 200, { status: r.status, progress: r.progress });
         } catch (err) {
           json(res, 500, { error: (err as Error).message });
-          return;
         }
-        next();
       });
     },
   };

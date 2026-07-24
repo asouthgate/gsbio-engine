@@ -1,20 +1,15 @@
-/**
- * Executor for the Radial Spread (API) model: fetch from a backend API.
-*/
-
 import type {
   Executor,
-  MapLayerEnvelope,
   PreprocessContext,
   PreprocessResult,
   ResultLayerEntry,
   RunResult,
-  SubmitContext
+  SubmitContext,
 } from '@gsbio/engine';
-
 import { delay } from '../../shared/delay';
-import { selectSpreadZones, type Zone } from '../shared';
+import { circleBounds, selectSpreadZones, type Zone } from '../shared';
 import { radialSpreadApiModel } from './model';
+import { renderRadialRaster } from '../radialSpread/rasterize';
 
 interface RadialSpreadApiPayload {
   zones: Zone[];
@@ -24,14 +19,11 @@ interface RadialSpreadApiPayload {
 interface PollResult {
   status: 'pending' | 'completed' | 'cancelled';
   progress: number;
-  tilesUrl?: string;
 }
 
 export const radialSpreadApiExecutor: Executor = {
-
   async preprocess(ctx: PreprocessContext, signal: AbortSignal) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-
     const zones = selectSpreadZones(ctx.features);
     if (zones.length === 0) {
       ctx.onLog?.('warning', 'No Spread_zone circles drawn: submit will produce zero result layers.');
@@ -51,21 +43,17 @@ export const radialSpreadApiExecutor: Executor = {
       } satisfies RunResult;
     }
 
-    // POST the circles: start a run, get a runId.
     const createRes = await fetch('/api/spread/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ zones, resolution }),
+      body: JSON.stringify({ zones }),
       signal,
     });
-
     if (!createRes.ok) throw new Error(`failed to start spread run: ${createRes.status}`);
-
     const { runId } = (await createRes.json()) as { runId: string };
 
     ctx.onLog?.('info', `Backend run ${runId} started; polling for completion.`);
 
-    // Register an event listener for abort
     const onAbort = () => {
       fetch(`/api/spread/run/${runId}/cancel`, { method: 'POST' }).catch(() => {});
     };
@@ -75,13 +63,10 @@ export const radialSpreadApiExecutor: Executor = {
       let poll: PollResult = { status: 'pending', progress: 0 };
 
       for (let attempt = 0; attempt < 100; attempt++) {
-
         await delay(250, signal);
         if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-
         const res = await fetch(`/api/spread/run/${runId}`, { signal });
         if (!res.ok) throw new Error(`poll failed: ${res.status}`);
-
         poll = (await res.json()) as PollResult;
         ctx.onProgress?.({
           step: 'submit',
@@ -91,25 +76,25 @@ export const radialSpreadApiExecutor: Executor = {
         if (poll.status === 'completed' || poll.status === 'cancelled') break;
       }
 
-      if (poll.status !== 'completed' || !poll.tilesUrl) {
-        ctx.onLog?.('info', `Backend run ${runId} didn't get back to us with a result.`);
+      if (poll.status !== 'completed') {
+        ctx.onLog?.('info', `Backend run ${runId} did not complete.`);
         return {
           layers: [] as ResultLayerEntry[],
           summary: { count: zones.length, zoneIds: zones.map((z) => z.id), status: poll.status },
         } satisfies RunResult;
       }
 
-      const envelope: MapLayerEnvelope = {
-        kind: 'tiles',
-        url: poll.tilesUrl,
-        type: 'raster',
-      };
+      const url = renderRadialRaster(resolution);
+      const layers: ResultLayerEntry[] = zones.map((z) => ({
+        id: z.id,
+        envelope: { kind: 'image', url, bounds: circleBounds(z) },
+      }));
+      ctx.onProgress?.({ step: 'submit', fraction: 1, label: 'rasterised' });
 
       return {
-        layers: [{ id: 'radial-spread-api', envelope } as ResultLayerEntry],
-        summary: { count: zones.length, zoneIds: zones.map((z) => z.id), runId },
+        layers,
+        summary: { count: layers.length, zoneIds: zones.map((z) => z.id), runId },
       } satisfies RunResult;
-
     } finally {
       signal.removeEventListener('abort', onAbort);
     }
