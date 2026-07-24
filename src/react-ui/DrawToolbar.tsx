@@ -1,10 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
+import { useEngine, useEngineState } from '../react';
 import type { DrawMode } from '../renderer-2d';
 
 export interface DrawTool {
   mode: DrawMode;
   label: string;
   icon?: ReactNode;
+  category?: string;
 }
 
 export const DEFAULT_DRAW_TOOLS: readonly DrawTool[] = [
@@ -26,32 +28,23 @@ const MODE_ICONS: Record<string, string> = {
 export interface DrawToolbarProps {
   className?: string;
   tools?: readonly DrawTool[];
-  onStartDrawing?: (mode: DrawMode, category?: string) => void;
-  onSelectMode?: () => void;
 }
 
 export function DrawToolbar({
   className = 'draw-toolbar',
   tools = DEFAULT_DRAW_TOOLS,
-  onStartDrawing,
-  onSelectMode,
 }: DrawToolbarProps) {
-  const [activeMode, setActiveMode] = useState<DrawMode>('select');
-  const [activeLabel, setActiveLabel] = useState<string>('Select');
+  const engine = useEngine();
+  const { drawMode } = useEngineState();
 
-  const isActive = (mode: DrawMode, label: string): boolean => {
-    if (mode === 'select') return activeMode === 'select';
-    return activeMode === mode && activeLabel === label;
+  const isActive = (mode: DrawMode, label: string, category?: string): boolean => {
+    const cat = category ?? label;
+    if (mode === 'select') return drawMode.mode === 'select';
+    return drawMode.mode === mode && drawMode.category === cat;
   };
 
-  const handle = (mode: DrawMode, label: string) => {
-    setActiveMode(mode);
-    setActiveLabel(label);
-    if (mode === 'select') {
-      onSelectMode?.();
-    } else {
-      onStartDrawing?.(mode, label);
-    }
+  const handle = (mode: DrawMode, label: string, category?: string) => {
+    engine.setDrawMode(mode, category ?? label);
   };
 
   let separatorPlaced = false;
@@ -65,8 +58,8 @@ export function DrawToolbar({
           <span key={i} style={{ display: 'contents' }}>
             {showSep && <span className="draw-toolbar-separator" />}
             <button
-              className={`draw-btn draw-btn--${t.mode} ${isActive(t.mode, t.label) ? 'active' : ''}`}
-              onClick={() => handle(t.mode, t.label)}
+              className={`draw-btn draw-btn--${t.mode} ${isActive(t.mode, t.label, t.category) ? 'active' : ''}`}
+              onClick={() => handle(t.mode, t.label, t.category)}
               title={t.label}
             >
               <span className="draw-btn-icon">{t.icon ?? MODE_ICONS[t.mode]}</span>

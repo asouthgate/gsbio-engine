@@ -62,7 +62,7 @@ export class TerraDraw2DRenderer implements Renderer {
   async mount(container: HTMLElement, engineInstance: unknown): Promise<void> {
     const engine = engineInstance as SimulationEngine;
     this.mapManager = new MapManager(
-      { style: this.options.style, center: this.options.center, zoom: this.options.zoom },
+      { style: this.options.style, center: this.options.center, zoom: this.options.zoom, minZoom: this.options.minZoom, maxZoom: this.options.maxZoom, maxBounds: this.options.maxBounds, transformRequest: this.options.transformRequest, getToken: this.options.getToken, refreshToken: this.options.refreshToken },
       { ...DEFAULT_RESULT_PAINT, ...this.options.resultStyles },
     );
     const map = await this.mapManager.mount(container);
@@ -85,15 +85,19 @@ export class TerraDraw2DRenderer implements Renderer {
       this.mapManager,
       this.compositeModes,
       this.geometryKindForMode.bind(this),
+      this.options.defaultData,
     );
 
     this._drawControl = control;
     this.cleanupBridge = control.cleanup;
   }
 
+  getMap(): maplibregl.Map | null {
+    return this.mapManager?.instance ?? null;
+  }
+
   unmount(): void {
     this.cleanupBridge?.();
-    this.cleanupBridge = null;
     this.draw?.stop();
     this.draw = null;
     this.mapManager.unmount();

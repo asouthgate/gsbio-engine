@@ -34,12 +34,14 @@ function RunRow({
   onClear,
   onToggleLayer,
   onViewLog,
+  onDownload,
 }: {
   rec: RunSummary;
   onToggle: () => void;
   onClear: () => void;
   onToggleLayer: (layerId: string) => void;
   onViewLog?: () => void;
+  onDownload?: () => void;
 }) {
   const canShow = rec.status === 'succeeded' && rec.layerIds.length > 0;
   const [expanded, setExpanded] = useState(false);
@@ -103,6 +105,16 @@ function RunRow({
             Log ({rec.log.length})
           </button>
         )}
+        {canShow && onDownload && (
+          <button
+            type="button"
+            className="btn btn-ghost run-item__download"
+            onClick={onDownload}
+            title="Download result layers"
+          >
+            Download
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-ghost run-item__clear"
@@ -124,7 +136,7 @@ function RunRow({
                     checked={checked}
                     onChange={() => onToggleLayer(layerId)}
                   />
-                  <span className="run-item__layer-id">{layerId}</span>
+                  <span className="run-item__layer-id">{rec.layerNames?.[layerId] ?? layerId}</span>
                 </label>
               </li>
             );
@@ -151,9 +163,10 @@ function RunRow({
 export interface ResultsPanelProps {
   className?: string;
   onViewLog?: (runId: string, log: RunLogEntry[]) => void;
+  onDownload?: (runId: string) => void;
 }
 
-export function ResultsPanel({ className = 'results-panel', onViewLog }: ResultsPanelProps) {
+export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload }: ResultsPanelProps) {
   const { summaries, toggleResult, toggleResultLayer, clearResult, clearAll } = useResults();
   const rows = summaries;
 
@@ -179,6 +192,7 @@ export function ResultsPanel({ className = 'results-panel', onViewLog }: Results
               onToggleLayer={(layerId) => toggleResultLayer(r.runId, layerId)}
               onClear={() => clearResult(r.runId)}
               onViewLog={onViewLog ? () => onViewLog(r.runId, r.log) : undefined}
+              onDownload={onDownload ? () => onDownload(r.runId) : undefined}
             />
           ))}
         </ul>

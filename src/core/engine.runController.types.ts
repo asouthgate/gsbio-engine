@@ -43,6 +43,7 @@ export interface RunResultEnvelope {
 }
 export interface ResultLayerEntry {
   id: string;
+  name?: string;
   envelope: MapLayerEnvelope;
 }
 
@@ -76,7 +77,7 @@ export function extractResultLayers(
           if (typeof item !== 'object' || item === null) continue;
           const it = item as Record<string, unknown>;
           if (typeof it.id === 'string' && isMapLayerEnvelope(it.envelope)) {
-            out.push({ id: it.id, envelope: it.envelope });
+            out.push({ id: it.id, name: typeof it.name === 'string' ? it.name : undefined, envelope: it.envelope });
           }
         }
         return out;
@@ -120,6 +121,7 @@ export type RunProgressStep = 'preprocess' | 'submit' | 'stream';
 export interface RunRecord {
   runId: string;
   modelId: string;
+  taskId?: string;
   params: ModelParams;
   status: RunStatus;
   // null until the run succeeds
@@ -130,6 +132,7 @@ export interface RunRecord {
   finishedAt: number | null;
   log: RunLogEntry[];
   layerIds: string[];
+  layerNames: Record<string, string>;
   visibleLayerIds: string[];
   visible: boolean;
 }
@@ -145,6 +148,7 @@ export interface RunSummary {
   log: RunLogEntry[];
   warnings: string[];
   layerIds: string[];
+  layerNames: Record<string, string>;
   visibleLayerIds: string[];
   visible: boolean;
   partial: boolean;
@@ -153,4 +157,5 @@ export interface RunSummary {
 export interface ResultLayerActions {
   addResultLayer: (runId: string, layerId: string, envelope: MapLayerEnvelope) => void;
   removeResultLayer: (runId: string, layerId: string) => void;
+  setRasterOpacity: (opacity: number) => void;
 }

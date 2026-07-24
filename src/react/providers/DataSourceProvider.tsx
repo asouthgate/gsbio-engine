@@ -1,9 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useFeatures } from '../useEngine';
-import type { DataSourceDef, DataFeature } from '../../core';
-
-export const DRAWN_SOURCE_ID = 'drawn-features';
+import { useEngine, useEngineState } from '../useEngine';
+import type { DataSourceDef } from '../../core';
+import { DRAWN_SOURCE_ID } from '../../core/engine.dataStore';
 
 interface DataSourceContextValue {
   sources: DataSourceDef[];
@@ -16,17 +15,14 @@ const DataSourceContext = createContext<DataSourceContextValue>({
 });
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
-  const { state } = useFeatures();
-  const drawnSource = useMemo<DataSourceDef>(
-    () => ({
-      id: DRAWN_SOURCE_ID,
-      name: 'Drawn features',
-      kind: 'drawn',
-      featureIds: state.features.map((f: DataFeature) => f.id),
-    }),
-    [state.features],
-  );
-  const sources = useMemo(() => [drawnSource], [drawnSource]);
+  const engine = useEngine();
+  const state = useEngineState();
+
+  const { sources, drawnSource } = useMemo(() => {
+    const all = engine.dataStore.getSources();
+    const drawn = all[0]!;
+    return { sources: all, drawnSource: drawn };
+  }, [engine, state.features]);
 
   return (
     <DataSourceContext.Provider value={{ sources, drawnSource }}>

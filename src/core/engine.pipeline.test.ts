@@ -102,6 +102,7 @@ function engineWithRun(): { engine: ReturnType<typeof createSimulationEngine>; a
   // Mock out some actions because they may still be tested
   // for the showResult / hideResult / clearResult methods.
   const actions: MapActions = {
+    addFeatureToMap: vi.fn(),
     removeFeatureFromMap: vi.fn(),
     setFeatureVisibility: vi.fn(),
     updateFeatureGeometry: vi.fn(),
