@@ -60,10 +60,8 @@ function json(res: import('http').ServerResponse, status: number, body: unknown)
   res.end(JSON.stringify(body));
 }
 
-/* ------------------------------- PNG encoder ----------------------------- */
-// Tiny standalone RGBA PNG encoder. zlib provides deflate (built into Node).
-// CRC32 is hand-rolled because this small encoder doesn't warrant a dependency.
-
+// Standard RGBA PNG encoder. zlib provides deflate (built into Node).
+// CRC32 is hand-rolled because we don't want another dep.
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -114,7 +112,9 @@ function encodePng(width: number, height: number, rgba: Buffer): Buffer {
   ]);
 }
 
-function matchRunRoute(url: string): { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null {
+function matchRunRoute(url: string):
+  { kind: 'create' } | { kind: 'poll'; id: string } | { kind: 'cancel'; id: string } | null 
+{
   const u = new URL(url, 'http://localhost');
   if (u.pathname === '/api/spread/run') return { kind: 'create' };
   const poll = u.pathname.match(/^\/api\/spread\/run\/([^/]+)$/);
@@ -197,7 +197,6 @@ export function fakeApiServerPlugin(): Plugin {
               json(res, 200, { ok: true });
               return;
             }
-            // poll
             if (req.method !== 'GET') {
               json(res, 405, { error: 'method not allowed' });
               return;
