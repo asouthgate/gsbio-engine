@@ -3,29 +3,8 @@
  *
  * Provides the network-transport surface that the `radialSpreadApi`
  * executor's `submit` glue talks to without requiring the dev to run a
- * separate backend process. `npm run dev` spins it up on the same port as
- * Vite (5180); no orchestrator changes, no new runtime deps.
+ * separate backend process. `npm run dev` spins it up.
  *
- * Endpoints:
- *
- *   POST /api/spread/run
- *     body: { zones: { id, center:{lng,lat}, radiusMeters }[] }
- *     returns { runId }
- *   GET /api/spread/run/:id
- *     returns { status: 'pending'|'completed'|'cancelled',
- *               progress: 0..1,
- *               tilesUrl?: string }
- *   POST /api/spread/run/:id/cancel
- *     status becomes 'cancelled'
- *   GET /tiles/spread/:runId/:z/:x/:y.png
- *     procedural XYZ raster tile (256×256 RGBA PNG) shaded with the same
- *     distance-decay warm ramp as the WASM archetype
- *
- * The "compute" is deliberately trivial (the per-tile shader in
- * `./tileShade.ts` runs on demand per tile request);
- * the simulated multi-second latency between progress ticks exercises the
- * poll-and-progress loop without doing meaningful work up front. Replace
- * this server with a real backend and the executor's contract stays the same.
  */
 
 import type { Plugin } from 'vite';
