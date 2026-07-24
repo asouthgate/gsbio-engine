@@ -91,7 +91,7 @@ export function renderRadialRaster(n: number): string {
 }
 ```
 
-The AssemblyScript source for the kernel lives at `examples/demo-web/src/wasm/spread.ts`; regenerate the binary with `pnpm --filter @gsbio/demo-web build:wasm`.
+The AssemblyScript source for the kernel lives at `examples/demo-web/src/wasm/spread.ts`; regenerate the binary with `npm run build --prefix examples/demo-web` (the `build` script compiles both Vite and AssemblyScript).
 
 #### Archetype B: fetch from a backend API (`radialSpreadApi`)
 
