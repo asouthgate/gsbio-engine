@@ -149,14 +149,15 @@ export function createPmtilesStyle(
   const minzoom = opts.minzoom ?? 0;
   const sourceName = opts.sourceName ?? 'openmaptiles';
 
-  const { url: _discard, ...originalRest } = style.sources?.[sourceName] ?? ({} as any);
+  const original = style.sources?.[sourceName] ?? {};
 
   return {
     ...style,
     sources: {
       ...style.sources,
       [sourceName]: {
-        ...originalRest,
+        ...original,
+        url: undefined,
         type: 'vector' as const,
         tiles: [`pmtiles://${pmtilesUrl}/{z}/{x}/{y}`],
         minzoom,
