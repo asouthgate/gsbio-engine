@@ -151,18 +151,20 @@ export function createPmtilesStyle(
 
   const original = style.sources?.[sourceName] ?? {};
 
+  const source = {
+    ...original,
+    type: 'vector' as const,
+    tiles: [`pmtiles://${pmtilesUrl}/{z}/{x}/{y}`],
+    minzoom,
+    maxzoom,
+  };
+  delete source.url;
+
   return {
     ...style,
     sources: {
       ...style.sources,
-      [sourceName]: {
-        ...original,
-        url: undefined,
-        type: 'vector' as const,
-        tiles: [`pmtiles://${pmtilesUrl}/{z}/{x}/{y}`],
-        minzoom,
-        maxzoom,
-      },
+      [sourceName]: source,
     },
   };
 }
