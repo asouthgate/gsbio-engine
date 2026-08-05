@@ -20,7 +20,7 @@ export function wireEvents(
   engine: SimulationEngine,
   draw: TerraDrawLike,
   mapManager: MapManager,
-  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: unknown; maxRadiusMeters?: number }>,
+  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: unknown; options?: Record<string, unknown> }>,
   geometryKindForMode: (mode: DrawMode) => DataFeature['geometryKind'],
   defaultDataConfig?: Record<string, Record<string, number>>,
 ): DrawControl & { cleanup: () => void } {
@@ -83,7 +83,7 @@ export function wireEvents(
     const category = dm.category;
 
     const modeName = resolveModeName(mode, category);
-    const maxRadius = compositeModes.get(modeName)?.maxRadiusMeters;
+    const maxRadius = mode === 'circle' ? (compositeModes.get(modeName)?.options?.maxRadiusMeters as number | undefined) : undefined;
 
     const feature = draw.getSnapshotFeature(id);
     if (!feature) return;
@@ -92,6 +92,7 @@ export function wireEvents(
     const snapshot = engine.getSnapshot().features;
     const existing = snapshot.features.find((f: DataFeature) => f.id === typeId);
     if (existing) {
+      // Existing circle being moved/resized: recompute radius, clamp to maxRadius, update engine
       if (existing.geometryKind === 'circle' && existing.circle) {
         const geom = geojson.geometry as { type: string; coordinates: number[][][] };
         if (geom.type === 'Polygon' && Array.isArray(geom.coordinates[0])) {
@@ -100,17 +101,19 @@ export function wireEvents(
           let newRadius = averageRadiusMeters(newCenter, ring);
           if (maxRadius != null && newRadius > maxRadius) {
             newRadius = maxRadius;
-            try { draw.removeFeatures([typeId]); } catch {}
-            try { draw.addFeatures([circleToPolygon(newCenter, maxRadius) as never]); } catch {}
+            try { draw.removeFeatures([typeId]); } catch { console.debug('removeFeatures failed'); }
+            try { draw.addFeatures([circleToPolygon(newCenter, maxRadius) as never]); } catch { console.debug('addFeatures failed'); }
           }
           engine.updateCircle(typeId, { center: newCenter, radiusMeters: newRadius });
         } else {
           engine.updateFeature(typeId, { geojson });
         }
       } else {
+        // Existing non-circle feature: update geometry directly
         engine.updateFeature(typeId, { geojson });
       }
     } else {
+      // New feature being created: for circles, compute center+radius from polygon and clamp to maxRadius
       let circle: { center: LngLat; radiusMeters: number } | undefined;
       if (mode === 'circle') {
         const props = (geojson as { properties?: Record<string, unknown> }).properties ?? {};
@@ -122,8 +125,8 @@ export function wireEvents(
           if (maxRadius != null && radiusMeters > maxRadius) {
             radiusMeters = maxRadius;
             (geojson as any).geometry = circleToPolygon(center, radiusMeters).geometry;
-            try { draw.removeFeatures([typeId]); } catch {}
-            try { draw.addFeatures([geojson as never]); } catch {}
+            try { draw.removeFeatures([typeId]); } catch { console.debug('removeFeatures failed'); }
+            try { draw.addFeatures([geojson as never]); } catch { console.debug('addFeatures failed'); }
           }
           circle = {
             center,

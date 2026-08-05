@@ -19,7 +19,7 @@ export interface FeatureToolStyle {
   mode: DrawMode;
   category: string;
   style: ShapePaint;
-  maxRadiusMeters?: number;
+  options?: Record<string, unknown>;
 }
 
 export interface FeatureStyleConfig {

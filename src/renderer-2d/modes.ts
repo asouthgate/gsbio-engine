@@ -30,7 +30,7 @@ export function makeComposite(
 
 export function createAllModes(
   featurePaints: Record<DrawMode, any>,
-  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: any; maxRadiusMeters?: number }>,
+  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: any; options?: Record<string, unknown> }>,
 ): never[] {
   const selectFlags: Record<string, unknown> = {
     point: { feature: { draggable: true } },
