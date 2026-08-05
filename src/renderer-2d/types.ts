@@ -19,6 +19,7 @@ export interface FeatureToolStyle {
   mode: DrawMode;
   category: string;
   style: ShapePaint;
+  options?: Record<string, unknown>;
 }
 
 export interface FeatureStyleConfig {

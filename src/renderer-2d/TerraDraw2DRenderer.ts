@@ -22,7 +22,7 @@ export class TerraDraw2DRenderer implements Renderer {
   private draw: TerraDrawLike | null = null;
   private cleanupBridge: (() => void) | null = null;
   private readonly featurePaints: Record<DrawMode, ShapePaint>;
-  private readonly compositeModes = new Map<string, { drawMode: DrawMode; category: string; style: ShapePaint }>();
+  private readonly compositeModes = new Map<string, { drawMode: DrawMode; category: string; style: ShapePaint; options?: Record<string, unknown> }>();
   private _drawControl: DrawControl = { startDrawing: () => {}, selectMode: () => {} };
 
   startDrawing = (mode: DrawMode, category?: string) => {
@@ -45,7 +45,7 @@ export class TerraDraw2DRenderer implements Renderer {
     for (const t of fs.tools ?? []) {
       if (t.mode === 'select') continue;
       const name = compositeModeName(t.mode, t.category);
-      this.compositeModes.set(name, { drawMode: t.mode, category: t.category, style: t.style });
+      this.compositeModes.set(name, { drawMode: t.mode, category: t.category, style: t.style, options: t.options });
     }
   }
 
