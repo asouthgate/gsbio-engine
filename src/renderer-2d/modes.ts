@@ -12,10 +12,8 @@ export function makeComposite(
   drawMode: DrawMode,
   name: string,
   featurePaints: Record<DrawMode, any>,
-  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: any }>,
+  paint: any,
 ): never {
-  const entry = compositeModes.get(name);
-  const paint = mergePaint(featurePaints[drawMode], entry?.style);
   switch (drawMode) {
     case 'point':
       return new TerraDrawPointMode({ modeName: name, styles: toPointStyles(paint) }) as never;
@@ -32,7 +30,7 @@ export function makeComposite(
 
 export function createAllModes(
   featurePaints: Record<DrawMode, any>,
-  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: any }>,
+  compositeModes: Map<string, { drawMode: DrawMode; category: string; style: any; maxRadiusMeters?: number }>,
 ): never[] {
   const selectFlags: Record<string, unknown> = {
     point: { feature: { draggable: true } },
@@ -50,7 +48,12 @@ export function createAllModes(
   }
 
   const compositeModeInstances = Array.from(compositeModes.keys()).map((name) =>
-    makeComposite(compositeModes.get(name)!.drawMode, name, featurePaints, compositeModes),
+    makeComposite(
+      compositeModes.get(name)!.drawMode,
+      name,
+      featurePaints,
+      mergePaint(featurePaints[compositeModes.get(name)!.drawMode], compositeModes.get(name)!.style),
+    ),
   );
 
   return [

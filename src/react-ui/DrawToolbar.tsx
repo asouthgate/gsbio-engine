@@ -7,6 +7,7 @@ export interface DrawTool {
   label: string;
   icon?: ReactNode;
   category?: string;
+  maxRadiusMeters?: number;
 }
 
 export const DEFAULT_DRAW_TOOLS: readonly DrawTool[] = [
