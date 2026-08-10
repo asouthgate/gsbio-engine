@@ -279,9 +279,19 @@ export class SimulationEngine {
     else this.showResultLayer(runId, layerId);
   };
 
+  private revokeResultBlobUrls(runId: string, rec: RunRecord): void {
+    if (!rec.result) return;
+    for (const layer of extractResultLayers(rec.result)) {
+      if (layer.envelope.kind === 'image') {
+        try { URL.revokeObjectURL(layer.envelope.url); } catch {}
+      }
+    }
+  }
+
   clearResult = (runId: string): void => {
     const rec = this.findRun(runId);
     if (rec) {
+      this.revokeResultBlobUrls(runId, rec);
       for (const layerId of rec.visibleLayerIds) {
         this.mapActions?.removeResultLayer(runId, layerId);
       }
@@ -300,11 +310,13 @@ export class SimulationEngine {
   clearAllResults = (): void => {
     const { current, history } = this._state.run;
     if (current) {
+      this.revokeResultBlobUrls(current.runId, current);
       for (const layerId of current.visibleLayerIds) {
         this.mapActions?.removeResultLayer(current.runId, layerId);
       }
     }
     for (const rec of history) {
+      this.revokeResultBlobUrls(rec.runId, rec);
       for (const layerId of rec.visibleLayerIds) {
         this.mapActions?.removeResultLayer(rec.runId, layerId);
       }
