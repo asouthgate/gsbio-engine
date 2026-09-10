@@ -1,4 +1,4 @@
-import type { FileSourceDef } from './engine.fileSource.types';
+import type { FileSourceDef, RawSource } from './engine.fileSource.types';
 import type { DataFeature, FeatureState } from './engine.feature.types';
 import type { DataSourceDef } from './types';
 import { parseGeoJsonToFeatures } from './engine.fileSource';
@@ -15,6 +15,7 @@ export class DataStore {
   private _features: DataFeature[] = [];
   private _selectedFeatureId: string | null = null;
   private _fileSources: FileSourceState[] = [];
+  private _rawSources = new Map<string, RawSource>();
 
   getSnapshot(): FeatureState {
     return {
@@ -29,6 +30,26 @@ export class DataStore {
 
   getFeature(id: string): DataFeature | undefined {
     return this._features.find((f) => f.id === id);
+  }
+
+  setRawSource(id: string, name: string, data: unknown): void {
+    this._rawSources.set(id, { id, name, data });
+  }
+
+  getRawSource(id: string): RawSource | undefined {
+    return this._rawSources.get(id);
+  }
+
+  getRawSources(): RawSource[] {
+    return [...this._rawSources.values()];
+  }
+
+  removeRawSource(id: string): void {
+    this._rawSources.delete(id);
+  }
+
+  clearRawSources(): void {
+    this._rawSources.clear();
   }
 
   addFeature(feature: DataFeature): void {

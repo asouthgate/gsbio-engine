@@ -1,6 +1,8 @@
 import type { DataFeature } from './engine.feature.types';
 import type { ModelParams } from './engine.modelRegistry.types';
 import type { MapLayerEnvelope } from './spatial.types';
+import type { ArtifactStore } from './engine.artifacts';
+import type { RawSource } from './engine.fileSource.types';
 
 export interface RunState {
   current: RunRecord | null;
@@ -19,7 +21,13 @@ export interface RunLogEntry {
 export interface PreprocessContext {
   modelId: string;
   params: ModelParams;
+  /** Current stage key of the model, or '' when the model has no stages. */
+  stage: string;
   features: ReadonlyArray<DataFeature>;
+  /** Raw (non-geospatial) sources stored in the engine's data store. */
+  sources: ReadonlyArray<RawSource>;
+  /** Model-scoped store for values produced by earlier runs of this model. */
+  artifacts: ArtifactStore;
   onLog?: (level: RunLogLevel, message: string) => void;
 }
 
@@ -30,7 +38,13 @@ export interface PreprocessResult {
 export interface SubmitContext {
   modelId: string;
   params: ModelParams;
+  /** Current stage key of the model, or '' when the model has no stages. */
+  stage: string;
   payload: PreprocessedPayload;
+  /** Raw (non-geospatial) sources stored in the engine's data store. */
+  sources: ReadonlyArray<RawSource>;
+  /** Model-scoped store for values produced by earlier runs of this model. */
+  artifacts: ArtifactStore;
   onProgress?: (progress: RunProgress) => void;
   onLog?: (level: RunLogLevel, message: string) => void;
 }

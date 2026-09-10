@@ -6,6 +6,7 @@ export * from './mapStyles';
 export * from './resolvePalette';
 export * from './stubExecutor';
 export * from './engine.fileSource.types';
+export * from './engine.artifacts';
 
 export { type DataFeature, type CircleGeometry, type FeatureMapActions } from './engine.feature.types';
 

@@ -1,44 +1,15 @@
 import { useEngine, useModel } from '../react';
-import { type ModelParamDef } from '../core';
-
-function ParamField({ def, value, onChange }: { def: ModelParamDef; value: number; onChange: (v: number) => void }) {
-  if (def.type === 'range') {
-    return (
-      <label className="field">
-        <span className="field-label">{def.label}</span>
-        <div className="range-field">
-          <input
-            type="range"
-            min={def.min}
-            max={def.max}
-            step={def.step}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-          />
-          <span className="range-value">{value}</span>
-        </div>
-      </label>
-    );
-  }
-  return (
-    <label className="field">
-      <span className="field-label">{def.label}</span>
-      <input
-        type="number"
-        min={def.min}
-        max={def.max}
-        step={def.step ?? 1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </label>
-  );
-}
+import { ParamField } from './ParamField';
 
 export interface ModelFormProps {
   className?: string;
 }
 
+/**
+ * A minimal, generic form for simple models: a model selector followed by all
+ * non-hidden params. Models needing custom layout should compose
+ * {@link ParamField} themselves from the declarative schema.
+ */
 export function ModelForm({ className = 'panel-section' }: ModelFormProps) {
   const { state, setModel, setModelParam } = useModel();
   const engine = useEngine();
@@ -61,14 +32,16 @@ export function ModelForm({ className = 'panel-section' }: ModelFormProps) {
 
       {def?.description && <p className="hint">{def.description}</p>}
 
-      {def && def.params.map((p) => (
-        <ParamField
-          key={p.key}
-          def={p}
-          value={state.params[p.key] ?? p.default}
-          onChange={(v) => setModelParam(p.key, v)}
-        />
-      ))}
+      {def && def.params
+        .filter((p) => !p.hidden)
+        .map((p) => (
+          <ParamField
+            key={p.key}
+            def={p}
+            value={state.params[p.key] ?? p.default}
+            onChange={(v) => setModelParam(p.key, v)}
+          />
+        ))}
     </div>
   );
 }
