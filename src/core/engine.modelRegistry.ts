@@ -3,6 +3,8 @@ import type { ModelDef, ModelParams } from './types';
 export interface ModelState {
   modelId: string;
   params: ModelParams;
+  /** Current stage key when the model declares `stages`, else ''. */
+  stage: string;
 }
 
 export class ModelRegistry {
@@ -28,6 +30,10 @@ export class ModelRegistry {
     return out;
   }
 
+  initialStageFor(model: ModelDef): string {
+    return model.stages?.[0]?.key ?? '';
+  }
+
   getInitialState(defaultId: string = 'hello-world'): ModelState {
     const initialModelId = this.get(defaultId)?.id ?? '';
     const initialModel = this.get(initialModelId);
@@ -35,6 +41,7 @@ export class ModelRegistry {
     return {
       modelId: initialModelId,
       params: initialModel ? this.defaultParamsFor(initialModel) : {},
+      stage: initialModel ? this.initialStageFor(initialModel) : '',
     };
   }
 }

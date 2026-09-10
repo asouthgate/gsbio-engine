@@ -148,6 +148,28 @@ export class MapManager {
 
     if (envelope.kind === 'geojson') {
       this.map.addSource(srcId, { type: 'geojson', data: envelope.data });
+      if (envelope.circleStyles && envelope.circleStyles.length > 0) {
+        const styleProperty = envelope.styleProperty ?? 'kind';
+        for (let i = 0; i < envelope.circleStyles.length; i++) {
+          const s = envelope.circleStyles[i];
+          const id = `${srcId}-circle-${i}`;
+          layerIds.push(id);
+          this.map.addLayer({
+            id,
+            type: 'circle',
+            source: srcId,
+            filter: ['==', ['get', styleProperty], s.value],
+            paint: {
+              'circle-radius': s.radius ?? rp.circleRadius,
+              'circle-color': s.color ?? rp.circleColor,
+              ...(s.strokeColor ? { 'circle-stroke-color': s.strokeColor } : {}),
+              ...(s.strokeWidth != null ? { 'circle-stroke-width': s.strokeWidth } : {}),
+            },
+          }, beforeId);
+        }
+        this.resultLayers.set(key, layerIds);
+        return;
+      }
       layerIds.push(`${srcId}-fill`, `${srcId}-line`, `${srcId}-circle`);
       this.map.addLayer({ id: `${srcId}-fill`, type: 'fill', source: srcId, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity } }, beforeId);
       this.map.addLayer({ id: `${srcId}-line`, type: 'line', source: srcId, filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth } }, beforeId);

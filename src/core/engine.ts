@@ -6,6 +6,7 @@ import { extractResultLayers } from './types';
 import { helloWorldModel } from './models/helloWorld';
 import { DataStore } from './engine.dataStore';
 import type { FileSourceState } from './engine.dataStore';
+import { ArtifactStore } from './engine.artifacts';
 import { ModelRegistry } from './engine.modelRegistry';
 import { replaceGeometry } from './featureHelpers';
 import {
@@ -36,10 +37,10 @@ export class SimulationEngine {
   private readonly _listeners = new Set<EngineListener>();
   mapActions: MapActions | null = null;
   private readonly _executors = new Map<string, Executor>();
+  private readonly _artifacts = new Map<string, ArtifactStore>();
   private _abort: AbortController | null = null;
   private _currentRun: Promise<void> | null = null;
   autoShowResults = false;
-  defaultLayerId: string | null = null;
 
   public readonly models = new ModelRegistry();
 
@@ -90,6 +91,24 @@ export class SimulationEngine {
     }
     this.emit();
     return parsed;
+  }
+
+  setRawSource(id: string, name: string, data: unknown): void {
+    this.dataStore.setRawSource(id, name, data);
+    this.emit();
+  }
+
+  getRawSource(id: string) {
+    return this.dataStore.getRawSource(id);
+  }
+
+  getRawSources() {
+    return this.dataStore.getRawSources();
+  }
+
+  removeRawSource(id: string): void {
+    this.dataStore.removeRawSource(id);
+    this.emit();
   }
 
   private _withTerraDrawMode(f: DataFeature): GeoJSON.Feature {
@@ -182,7 +201,12 @@ export class SimulationEngine {
       console.warn(`[Engine] Cannot set model: ${modelId} not found.`);
       return;
     }
-    this._state.model = { modelId, params: this.models.defaultParamsFor(def) };
+    this._state.model = { modelId, stage: this.models.initialStageFor(def), params: this.models.defaultParamsFor(def) };
+    this.emit();
+  }
+
+  setStage(stage: string): void {
+    this._state.model = { ...this._state.model, stage };
     this.emit();
   }
 
@@ -202,7 +226,7 @@ export class SimulationEngine {
   registerModel(def: ModelDef): void {
     this.models.register(def);
     if (this._state.model.modelId === '' || !this.models.get(this._state.model.modelId)) {
-      this._state.model = { modelId: def.id, params: this.models.defaultParamsFor(def) };
+      this._state.model = { modelId: def.id, stage: this.models.initialStageFor(def), params: this.models.defaultParamsFor(def) };
       this.emit();
     }
   }
@@ -215,6 +239,22 @@ export class SimulationEngine {
 
   getExecutor(modelId: string): Executor | undefined {
     return this._executors.get(modelId);
+  }
+
+  /** Returns the artifact store for a model, creating it lazily if needed. */
+  artifactsFor(modelId: string): ArtifactStore {
+    let store = this._artifacts.get(modelId);
+    if (!store) {
+      store = new ArtifactStore();
+      this._artifacts.set(modelId, store);
+    }
+    return store;
+  }
+
+  private resolveDefaultLayerId(modelId: string, stage: string): string | null {
+    const def = this.models.get(modelId);
+    const stageDef = def?.stages?.find((s) => s.key === stage);
+    return stageDef?.defaultLayerId ?? def?.defaultLayerId ?? null;
   }
 
 
@@ -317,6 +357,11 @@ export class SimulationEngine {
     return findRunInState(this._state.run, runId);
   }
 
+  /** Typed accessor for a model-specific run summary. */
+  resultSummary<T>(runId: string): T | undefined {
+    return this.findRun(runId)?.result?.summary as T | undefined;
+  }
+
   allSummaries(state?: RunState): RunSummary[] {
     return computeAllSummaries(state ?? this._state.run);
   }
@@ -330,7 +375,9 @@ export class SimulationEngine {
     const ac = new AbortController();
     this._abort = ac;
     const modelId = this._state.model.modelId;
+    const stage = this._state.model.stage;
     const params = { ...this._state.model.params };
+    const defaultLayerId = this.resolveDefaultLayerId(modelId, stage);
     const runId = this._nextRunId();
     const startedAt = Date.now();
 
@@ -361,7 +408,7 @@ export class SimulationEngine {
         rawAppend('info', 'Preprocessing…');
         this._state.run = { ...this._state.run, current: setRunStatus(this._state.run.current!, 'preprocessing') };
         this.emit();
-        const { payload } = await executor.preprocess({ modelId, params, features, onLog }, ac.signal);
+        const { payload } = await executor.preprocess({ modelId, stage, params, features, sources: this.dataStore.getRawSources(), artifacts: this.artifactsFor(modelId), onLog }, ac.signal);
 
         if (ac.signal.aborted) return;
 
@@ -376,7 +423,7 @@ export class SimulationEngine {
             this.emit();
           }
         };
-        const result = await executor.submit({ modelId, params, payload, onProgress, onLog }, ac.signal);
+        const result = await executor.submit({ modelId, stage, params, payload, sources: this.dataStore.getRawSources(), artifacts: this.artifactsFor(modelId), onProgress, onLog }, ac.signal);
 
         if (this._abort === ac && !ac.signal.aborted) {
           const layers = extractResultLayers(result);
@@ -400,8 +447,12 @@ export class SimulationEngine {
           this.emit();
           rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerIds.length > 0) {
-            if (this.defaultLayerId && layerIds.includes(this.defaultLayerId)) {
-              this.showResultLayer(runId, this.defaultLayerId);
+            const modelDef = this.models.get(modelId);
+            const autoIds = (modelDef?.autoShowLayerIds ?? []).filter((id) => layerIds.includes(id));
+            if (autoIds.length > 0) {
+              for (const id of autoIds) this.showResultLayer(runId, id);
+            } else if (defaultLayerId && layerIds.includes(defaultLayerId)) {
+              this.showResultLayer(runId, defaultLayerId);
             } else {
               this.showResult(runId);
             }

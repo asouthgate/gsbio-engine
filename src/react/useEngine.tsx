@@ -15,6 +15,7 @@ import {
   type SimulationEngine,
   type DataFeature,
   type DataSourceDef,
+  type RawSource,
 } from '../core';
 
 const EngineContext = createContext<SimulationEngine | null>(null);
@@ -78,6 +79,7 @@ export interface ModelHook {
   setModel: (modelId: string) => void;
   setModelParam: (key: string, value: number) => void;
   setModelParams: (params: Record<string, number>) => void;
+  setStage: (stage: string) => void;
 }
 
 export function useModel(): ModelHook {
@@ -88,6 +90,7 @@ export function useModel(): ModelHook {
     setModel: (modelId) => engine.setModel(modelId),
     setModelParam: (key, value) => engine.setModelParam(key, value),
     setModelParams: (params) => engine.setModelParams(params),
+    setStage: (stage) => engine.setStage(stage),
   };
 }
 
@@ -142,4 +145,10 @@ export function useDataSources(): DataSourceDef[] {
   const engine = useEngine();
   const { features } = useEngineState();
   return useMemo(() => engine.dataStore.getSources(), [engine, features]);
+}
+
+export function useRawSources(): RawSource[] {
+  const engine = useEngine();
+  useEngineState();
+  return useMemo(() => engine.dataStore.getRawSources(), [engine]);
 }

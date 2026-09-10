@@ -8,6 +8,9 @@ export type { DrawToolbarProps, DrawTool } from './DrawToolbar';
 export { ModelForm } from './ModelForm';
 export type { ModelFormProps } from './ModelForm';
 
+export { ParamField } from './ParamField';
+export type { ParamFieldProps } from './ParamField';
+
 export { RunPanel } from './RunPanel';
 export type { RunPanelProps } from './RunPanel';
 
