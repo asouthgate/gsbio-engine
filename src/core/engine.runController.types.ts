@@ -52,10 +52,22 @@ export interface SubmitContext {
 
 export type RunResult = { layers: ResultLayerEntry[]; summary?: unknown };
 
+/** Raw scientific artifact accompanying a rendered result layer. */
+export interface ResultLayerRaw {
+  /** Filename within the download archive. */
+  filename: string;
+  /** Inline bytes (client-computed layers). */
+  bytes?: Uint8Array;
+  /** URL to fetch the raw file (server layers). */
+  url?: string;
+}
+
 export interface ResultLayerEntry {
   id: string;
   name?: string;
   envelope: MapLayerEnvelope;
+  /** Optional raw artifact (e.g. GeoTIFF) included in downloads. */
+  raw?: ResultLayerRaw;
 }
 
 export interface RunResultLayers {
