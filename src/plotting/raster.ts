@@ -84,10 +84,6 @@ export interface PlotMargins {
 /** Minimum data-region resolution (upscaled if smaller) so bars/labels are smooth. */
 const MIN_RENDER = 1000;
 
-// ---------------------------------------------------------------------------
-// Pure helpers (unit-tested; no DOM)
-// ---------------------------------------------------------------------------
-
 export function computeDomain(
   data: Float32Array,
   opts: { vmin?: number; vmax?: number; scale?: RasterScale; nodata?: number } = {},
@@ -202,10 +198,6 @@ export function projectToPixel(
   const py = n === s ? 0 : ((n - lat) / (n - s)) * (height - 1);
   return [px, py];
 }
-
-// ---------------------------------------------------------------------------
-// Plotting (browser canvas)
-// ---------------------------------------------------------------------------
 
 /**
  * Render a value grid to a PNG blob URL, optionally baking a colorbar into a
