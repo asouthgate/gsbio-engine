@@ -150,7 +150,7 @@ export class SimulationEngine {
   toggleFeatureVisibility(id: string): void {
     const updated = this.dataStore.toggleVisibility(id);
     if (!updated) return;
-    this.mapActions?.setFeatureVisibility(id, updated.visible, updated.geojson);
+    this.mapActions?.setFeatureVisibility(id, updated.visible, this._withTerraDrawMode(updated));
     this.emit();
   }
 

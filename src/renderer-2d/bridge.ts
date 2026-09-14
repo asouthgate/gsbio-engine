@@ -9,7 +9,7 @@ import {
 } from '../core';
 import type { TerraDrawLike } from './types';
 import { compositeModeName } from './styles';
-import type { MapManager } from './mapManager';
+import type { MapManager, PointCollectionPaint } from './mapManager';
 
 export interface DrawControl {
   startDrawing: (mode: DrawMode, category?: string) => void;
@@ -23,7 +23,20 @@ export function wireEvents(
   compositeModes: Map<string, { drawMode: DrawMode; category: string; style: unknown; options?: Record<string, unknown> }>,
   geometryKindForMode: (mode: DrawMode) => DataFeature['geometryKind'],
   defaultDataConfig?: Record<string, Record<string, number>>,
+  defaultPointPaint?: PointCollectionPaint,
 ): DrawControl & { cleanup: () => void } {
+
+  const isMultiPoint = (geojson: GeoJSON.Feature): boolean =>
+    (geojson.geometry as GeoJSON.Geometry | undefined)?.type === 'MultiPoint';
+
+  const resolvePointPaint = (geojson: GeoJSON.Feature): PointCollectionPaint => {
+    const mode = (geojson.properties as Record<string, unknown> | undefined)?.mode;
+    const category = typeof mode === 'string' && mode.includes('__') ? mode.split('__')[1] : undefined;
+    const catStyle = category
+      ? (compositeModes.get(`point__${category}`)?.style as PointCollectionPaint | undefined)
+      : undefined;
+    return catStyle ?? defaultPointPaint ?? {};
+  };
 
   const resolveModeName = (mode: DrawMode, category: string): string => {
     if (mode === 'select') return 'select';
@@ -52,12 +65,22 @@ export function wireEvents(
 
   engine.setMapActions({
     addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => {
+      if (isMultiPoint(geojson)) {
+        mapManager.addPointCollection(id, geojson, resolvePointPaint(geojson));
+        return;
+      }
       try { draw.addFeatures([geojson as never]); } catch { /* ignore */ }
     },
     removeFeatureFromMap: (id: string) => {
+      mapManager.removePointCollection(id);
       try { draw.removeFeatures([id]); } catch { /* feature may not exist */ }
     },
     setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature) => {
+      if (isMultiPoint(geojson)) {
+        if (visible) mapManager.addPointCollection(id, geojson, resolvePointPaint(geojson));
+        else mapManager.removePointCollection(id);
+        return;
+      }
       try {
         if (!visible) {
           draw.removeFeatures([id]);
@@ -67,6 +90,10 @@ export function wireEvents(
       } catch { /* ignore */ }
     },
     updateFeatureGeometry: (id: string, geojson: GeoJSON.Feature) => {
+      if (isMultiPoint(geojson)) {
+        mapManager.addPointCollection(id, geojson, resolvePointPaint(geojson));
+        return;
+      }
       try {
         draw.removeFeatures([id]);
         draw.addFeatures([geojson as never]);

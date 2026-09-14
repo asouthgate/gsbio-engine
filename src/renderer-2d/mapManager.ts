@@ -80,9 +80,15 @@ function registerPmtilesProtocol(
   pmtilesProtocolRegistered = true;
 }
 
+export interface PointCollectionPaint {
+  pointColor?: string;
+  pointRadius?: number;
+}
+
 export class MapManager {
   private map: maplibregl.Map | null = null;
   private resultLayers = new Map<string, string[]>();
+  private pointCollections = new Map<string, { sourceId: string; layerId: string }>();
   private currentRasterOpacity = 1.0;
 
   constructor(private readonly options: MapManagerOptions, private readonly resultPaint: Required<ResultPaint>) {}
@@ -201,8 +207,38 @@ export class MapManager {
     this.resultLayers.delete(key);
   }
 
+  addPointCollection(id: string, geojson: GeoJSON.Feature, paint: PointCollectionPaint) {
+    if (!this.map) return;
+    const sourceId = `gsbio-points-${id}`;
+    this.removePointCollection(id);
+
+    const beforeId = this.getTerraDrawLayerId();
+    this.map.addSource(sourceId, { type: 'geojson', data: geojson });
+    const layerId = `${sourceId}-circle`;
+    this.map.addLayer({
+      id: layerId,
+      type: 'circle',
+      source: sourceId,
+      paint: {
+        'circle-radius': paint.pointRadius ?? 4,
+        'circle-color': paint.pointColor ?? '#ffbd17',
+      },
+    }, beforeId);
+    this.pointCollections.set(id, { sourceId, layerId });
+  }
+
+  removePointCollection(id: string) {
+    if (!this.map) return;
+    const entry = this.pointCollections.get(id);
+    if (!entry) return;
+    try { this.map.removeLayer(entry.layerId); } catch {}
+    try { this.map.removeSource(entry.sourceId); } catch {}
+    this.pointCollections.delete(id);
+  }
+
   unmount() {
     this.resultLayers.clear();
+    this.pointCollections.clear();
     try { this.map?.remove(); } catch {}
     this.map = null;
   }

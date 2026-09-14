@@ -103,6 +103,25 @@ describe('parseGeoJsonToFeatures', () => {
     const allIds = new Set([...a.map((f) => f.id), ...b.map((f) => f.id)]);
     expect(allIds.size).toBe(4); // 2 + 2 unique
   });
+
+  it('parses a MultiPoint as a single multipoint collection feature', () => {
+    const fc = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'MultiPoint', coordinates: [[-3.6, 50.604], [-3.601, 50.605]] },
+          properties: { heights: [5, 10] },
+        },
+      ],
+    };
+    const features = parseGeoJsonToFeatures(LIGHTS_DEF, fc);
+    expect(features).toHaveLength(1);
+    expect(features[0]!.geometryKind).toBe('multipoint');
+    expect(features[0]!.category).toBe('Lights');
+    expect(features[0]!.data).toEqual({ heights: [5, 10] });
+    expect((features[0]!.geojson.geometry as GeoJSON.MultiPoint).coordinates).toHaveLength(2);
+  });
 });
 
 

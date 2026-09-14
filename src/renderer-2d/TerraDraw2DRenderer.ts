@@ -38,6 +38,7 @@ export class TerraDraw2DRenderer implements Renderer {
     this.featurePaints = {
       select: {},
       point: mergePaint(DEFAULT_FEATURE_STYLES.point, fs.point),
+      multipoint: mergePaint(DEFAULT_FEATURE_STYLES.multipoint, undefined),
       linestring: mergePaint(DEFAULT_FEATURE_STYLES.linestring, fs.linestring),
       polygon: mergePaint(DEFAULT_FEATURE_STYLES.polygon, fs.polygon),
       circle: mergePaint(DEFAULT_FEATURE_STYLES.circle, fs.circle),
@@ -86,6 +87,7 @@ export class TerraDraw2DRenderer implements Renderer {
       this.compositeModes,
       this.geometryKindForMode.bind(this),
       this.options.defaultData,
+      this.featurePaints.multipoint,
     );
 
     this._drawControl = control;

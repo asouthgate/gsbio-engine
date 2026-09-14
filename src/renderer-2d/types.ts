@@ -74,6 +74,7 @@ export interface TerraDrawLike {
 export const DEFAULT_FEATURE_STYLES: Record<DrawMode, ShapePaint> = {
   select: {},
   point: { pointColor: '#2dd4bf', pointOutlineColor: '#222f35', pointRadius: 6 },
+  multipoint: { pointColor: '#2dd4bf', pointOutlineColor: '#222f35', pointRadius: 6 },
   linestring: { lineColor: '#2dd4bf', lineWidth: 2 },
   polygon: { fillColor: '#2dd4bf', fillOpacity: 0.18, outlineColor: '#5eead4', outlineWidth: 2 },
   circle: { fillColor: '#2dd4bf', fillOpacity: 0.12, outlineColor: '#5eead4', outlineWidth: 2 },
