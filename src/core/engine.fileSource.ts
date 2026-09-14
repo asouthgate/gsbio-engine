@@ -39,6 +39,7 @@ export function parseGeoJsonToFeatures(
 
     if (geom.type === 'LineString' || geom.type === 'MultiLineString') geometryKind = 'linestring';
     else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') geometryKind = 'polygon';
+    else if (geom.type === 'MultiPoint') geometryKind = 'multipoint';
 
     features.push({
       id: makeId(),

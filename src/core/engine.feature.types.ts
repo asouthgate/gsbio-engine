@@ -1,6 +1,6 @@
 import type { LngLat } from './spatial';
 
-export type GeometryKind = 'point' | 'linestring' | 'polygon' | 'circle';
+export type GeometryKind = 'point' | 'linestring' | 'polygon' | 'circle' | 'multipoint';
 
 export type DrawMode = 'select' | GeometryKind;
 
