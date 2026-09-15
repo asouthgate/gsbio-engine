@@ -75,4 +75,49 @@ describe('reprojectGridToWgs84', () => {
     const row = Math.floor(((north - lat) / (north - south)) * out.height);
     expect(out.data[row * out.width + col]).toBeGreaterThan(0);
   });
+
+  it('converges as the coarse grid resolution increases', () => {
+    // A large extent makes the TM non-linearity significant enough that the
+    // coarse interpolation grid actually matters.
+    const largeBounds: [number, number, number, number] = [200000, 200000, 400000, 400000];
+    const w = 200;
+    const h = 200;
+    const data = new Float32Array(w * h).fill(0);
+    data[Math.floor(h / 2) * w + Math.floor(w / 2)] = 42;
+
+    const markerPeak = (out: ReturnType<typeof reprojectGridToWgs84>) => {
+      let peak = 0;
+      let maxV = -Infinity;
+      for (let i = 0; i < out.data.length; i++) {
+        if (out.data[i] > maxV) { maxV = out.data[i]; peak = i; }
+      }
+      return { col: peak % out.width, row: Math.floor(peak / out.width), maxV };
+    };
+
+    const fine = markerPeak(reprojectGridToWgs84({ data, width: w, height: h, crs: 'EPSG:27700', bounds: largeBounds }, 65));
+    const coarse = markerPeak(reprojectGridToWgs84({ data, width: w, height: h, crs: 'EPSG:27700', bounds: largeBounds }, 2));
+
+    // The marker is still the brightest spot, but a 2x2 inverse grid misplaces it.
+    expect(fine.maxV).toBeGreaterThan(0);
+    expect(coarse.maxV).toBeGreaterThan(0);
+    expect(Math.hypot(fine.col - coarse.col, fine.row - coarse.row)).toBeGreaterThan(0.5);
+  });
+
+  it('caps output dimensions proportionally and honours a custom maxDim', () => {
+    const w = 100;
+    const h = 100;
+    const data = new Float32Array(w * h).fill(1);
+    const base = reprojectGridToWgs84({ data, width: w, height: h, crs: 'EPSG:27700', bounds });
+
+    // Override the cap well below the natural size and check aspect is preserved.
+    const capped = reprojectGridToWgs84(
+      { data, width: w, height: h, crs: 'EPSG:27700', bounds },
+      33,
+      64,
+    );
+    expect(Math.max(capped.width, capped.height)).toBeLessThanOrEqual(64);
+    const baseAspect = base.width / base.height;
+    const cappedAspect = capped.width / capped.height;
+    expect(cappedAspect).toBeCloseTo(baseAspect, 1);
+  });
 });

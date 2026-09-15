@@ -1,9 +1,4 @@
 // Projection helpers for the shared raster plotter.
-//
-// The engine owns all coordinate projection. Rasters are handed to the plotter
-// in their native CRS (currently British National Grid, EPSG:27700) and the
-// engine reprojects them onto an axis-aligned WGS84 grid before rendering, so
-// callers never do BNG<->WGS84 conversion themselves.
 
 import proj4 from 'proj4';
 
@@ -16,7 +11,7 @@ export type RasterCrs = 'EPSG:4326' | 'EPSG:27700';
 export type Wgs84Corner = [number, number];
 export type Wgs84Corners = [Wgs84Corner, Wgs84Corner, Wgs84Corner, Wgs84Corner];
 
-/** WGS84 (lat, lon) -> BNG [easting, northing]. Matches the legacy frontend signature. */
+/** WGS84 (lat, lon) -> BNG [easting, northing]. */
 export function wgs84ToBng(lat: number, lon: number): [number, number] {
   const [easting, northing] = proj4(WGS84, BNG, [lon, lat]);
   return [easting, northing];
@@ -66,10 +61,6 @@ export interface Wgs84RasterGrid {
   boundsWgs84: [number, number, number, number];
 }
 
-/** Safety cap on reprojected output dimensions. */
-const MAX_OUT_DIM = 4096;
-/** Coarse grid resolution (per axis) used to interpolate the inverse transform. */
-const COARSE = 33;
 /** metres per degree of latitude at the equator. */
 const METRES_PER_DEG = 111_320;
 
@@ -78,14 +69,24 @@ const METRES_PER_DEG = 111_320;
  *
  * The BNG->WGS84 mapping is smooth and nearly affine over the small study areas
  * this engine handles, so the inverse transform is evaluated exactly on a coarse
- * `COARSE x COARSE` grid and bilinearly interpolated per output pixel. This
+ * `coarse x coarse` grid and bilinearly interpolated per output pixel. This
  * captures the grid rotation (the source of the "one corner only" misalignment)
  * without paying a proj4 call per pixel.
+ *
+ * @param coarse Inverse-transform interpolation grid resolution (accuracy vs
+ *   cost); clamped to at least 2. Defaults to 33.
+ * @param maxDim Safety cap on the output dimensions (a crash guard for absurd
+ *   inputs), applied proportionally so the aspect ratio is preserved. Defaults
+ *   to 4096.
  *
  * Pixels outside the source footprint (the rotated parallelogram) and any
  * `nodata`/NaN samples are left as NaN (transparent).
  */
-export function reprojectGridToWgs84(grid: NativeRasterGrid): Wgs84RasterGrid {
+export function reprojectGridToWgs84(
+  grid: NativeRasterGrid,
+  coarse = 33,
+  maxDim = 4096,
+): Wgs84RasterGrid {
   const { data, width: srcW, height: srcH, crs, bounds, nodata } = grid;
   const [xmin, ymin, xmax, ymax] = bounds;
 
@@ -109,19 +110,29 @@ export function reprojectGridToWgs84(grid: NativeRasterGrid): Wgs84RasterGrid {
   const degPerPxX = pixw / (METRES_PER_DEG * cosLat);
   const degPerPxY = pixh / METRES_PER_DEG;
 
-  const outW = clampDim(Math.max(1, Math.ceil((maxLng - minLng) / degPerPxX)));
-  const outH = clampDim(Math.max(1, Math.ceil((maxLat - minLat) / degPerPxY)));
+  let outW = Math.max(1, Math.ceil((maxLng - minLng) / degPerPxX));
+  let outH = Math.max(1, Math.ceil((maxLat - minLat) / degPerPxY));
+  if (maxDim > 0) {
+    const largest = Math.max(outW, outH);
+    if (largest > maxDim) {
+      const s = maxDim / largest;
+      outW = Math.max(1, Math.round(outW * s));
+      outH = Math.max(1, Math.round(outH * s));
+    }
+  }
+
+  const coarseN = Math.max(2, Math.floor(coarse));
 
   // Coarse inverse-transform grid: (lng, lat) -> (source col, row).
-  const srcCol = new Float32Array(COARSE * COARSE);
-  const srcRow = new Float32Array(COARSE * COARSE);
-  for (let j = 0; j < COARSE; j++) {
-    const lat = maxLat - (j / (COARSE - 1)) * (maxLat - minLat);
-    for (let i = 0; i < COARSE; i++) {
-      const lng = minLng + (i / (COARSE - 1)) * (maxLng - minLng);
+  const srcCol = new Float32Array(coarseN * coarseN);
+  const srcRow = new Float32Array(coarseN * coarseN);
+  for (let j = 0; j < coarseN; j++) {
+    const lat = maxLat - (j / (coarseN - 1)) * (maxLat - minLat);
+    for (let i = 0; i < coarseN; i++) {
+      const lng = minLng + (i / (coarseN - 1)) * (maxLng - minLng);
       const [easting, northing] = wgs84ToBng(lat, lng);
-      srcCol[j * COARSE + i] = (easting - xmin) / pixw;
-      srcRow[j * COARSE + i] = (ymax - northing) / pixh;
+      srcCol[j * coarseN + i] = (easting - xmin) / pixw;
+      srcRow[j * coarseN + i] = (ymax - northing) / pixh;
     }
   }
 
@@ -131,12 +142,12 @@ export function reprojectGridToWgs84(grid: NativeRasterGrid): Wgs84RasterGrid {
 
   for (let row = 0; row < outH; row++) {
     const lat = maxLat - (row + 0.5) * dy;
-    const gy = ((maxLat - lat) / (maxLat - minLat || 1)) * (COARSE - 1);
-    const yi = interpAxis(gy, COARSE);
+    const gy = ((maxLat - lat) / (maxLat - minLat || 1)) * (coarseN - 1);
+    const yi = interpAxis(gy, coarseN);
     for (let col = 0; col < outW; col++) {
       const lng = minLng + (col + 0.5) * dx;
-      const gx = ((lng - minLng) / (maxLng - minLng || 1)) * (COARSE - 1);
-      const xi = interpAxis(gx, COARSE);
+      const gx = ((lng - minLng) / (maxLng - minLng || 1)) * (coarseN - 1);
+      const xi = interpAxis(gx, coarseN);
 
       const w00 = (1 - xi.f) * (1 - yi.f);
       const w10 = xi.f * (1 - yi.f);
@@ -144,25 +155,21 @@ export function reprojectGridToWgs84(grid: NativeRasterGrid): Wgs84RasterGrid {
       const w11 = xi.f * yi.f;
 
       const sc =
-        w00 * srcCol[yi.i * COARSE + xi.i] +
-        w10 * srcCol[yi.i * COARSE + xi.j] +
-        w01 * srcCol[yi.j * COARSE + xi.i] +
-        w11 * srcCol[yi.j * COARSE + xi.j];
+        w00 * srcCol[yi.i * coarseN + xi.i] +
+        w10 * srcCol[yi.i * coarseN + xi.j] +
+        w01 * srcCol[yi.j * coarseN + xi.i] +
+        w11 * srcCol[yi.j * coarseN + xi.j];
       const sr =
-        w00 * srcRow[yi.i * COARSE + xi.i] +
-        w10 * srcRow[yi.i * COARSE + xi.j] +
-        w01 * srcRow[yi.j * COARSE + xi.i] +
-        w11 * srcRow[yi.j * COARSE + xi.j];
+        w00 * srcRow[yi.i * coarseN + xi.i] +
+        w10 * srcRow[yi.i * coarseN + xi.j] +
+        w01 * srcRow[yi.j * coarseN + xi.i] +
+        w11 * srcRow[yi.j * coarseN + xi.j];
 
       out[row * outW + col] = sampleBilinear(data, srcW, srcH, sc, sr, nodata);
     }
   }
 
   return { data: out, width: outW, height: outH, boundsWgs84: [minLng, minLat, maxLng, maxLat] };
-}
-
-function clampDim(v: number): number {
-  return Math.min(MAX_OUT_DIM, Math.max(1, v));
 }
 
 /** Split a grid-space coordinate into the two enclosing indices + lower weight. */
