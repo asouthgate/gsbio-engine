@@ -4,6 +4,7 @@
 // same way.
 
 import { paletteLUT, type PaletteId } from './palettes';
+import { reprojectGridToWgs84, type RasterCrs } from './projection';
 
 export type RasterScale = 'linear' | 'log';
 
@@ -15,8 +16,10 @@ export interface RasterGrid {
   data: Float32Array;
   width: number;
   height: number;
-  /** [west, south, east, north] in EPSG:4326. */
-  boundsWgs84: [number, number, number, number];
+  /** Native CRS of `bounds`. Defaults to EPSG:4326. */
+  crs?: RasterCrs;
+  /** [xmin, ymin, xmax, ymax] in `crs`. */
+  bounds: [number, number, number, number];
   nodata?: number;
 }
 
@@ -206,16 +209,33 @@ export function projectToPixel(
  * expanded) bounds so the data region stays georeferenced.
  */
 export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promise<RasterPlotResult> {
-  const { data, width: dw, height: dh, boundsWgs84, nodata } = grid;
+  const { data, width: dw, height: dh, crs, bounds, nodata } = grid;
   if (data.length !== dw * dh) {
     throw new Error(`plotRaster: data length ${data.length} != ${dw}x${dh}`);
   }
+
+  // Reproject non-WGS84 rasters onto an axis-aligned WGS84 grid first, so the
+  // heatmap renders (and georeferences) correctly despite the grid rotation.
+  const nativeCrs: RasterCrs = crs ?? 'EPSG:4326';
+  let srcData = data;
+  let srcW = dw;
+  let srcH = dh;
+  let srcBounds: [number, number, number, number] = bounds;
+  if (nativeCrs === 'EPSG:27700') {
+    const r = reprojectGridToWgs84({ data, width: dw, height: dh, crs: nativeCrs, bounds, nodata });
+    srcData = r.data;
+    srcW = r.width;
+    srcH = r.height;
+    srcBounds = r.boundsWgs84;
+  }
+  const boundsWgs84 = srcBounds;
+
   const scale = spec.scale ?? 'linear';
-  const [min, max] = computeDomain(data, { vmin: spec.vmin, vmax: spec.vmax, scale, nodata });
+  const [min, max] = computeDomain(srcData, { vmin: spec.vmin, vmax: spec.vmax, scale, nodata });
   const lut = paletteLUT(spec.palette, 256);
 
-  const renderW = Math.max(dw, MIN_RENDER);
-  const renderH = Math.max(dh, MIN_RENDER);
+  const renderW = Math.max(srcW, MIN_RENDER);
+  const renderH = Math.max(srcH, MIN_RENDER);
   const renderMax = Math.max(renderW, renderH);
   // Scale the colorbar furniture with the output resolution so it stays
   // legible relative to the image rather than looking miniature.
@@ -246,17 +266,17 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
   const outH = margins.top + renderH + margins.bottom;
 
   // Normalised values (NaN = transparent).
-  const norm = new Float32Array(dw * dh);
+  const norm = new Float32Array(srcW * srcH);
   const range = max - min || 1;
   const logLo = scale === 'log' ? Math.log(Math.max(min, Number.MIN_VALUE)) : 0;
   const logRange = scale === 'log' ? Math.log(Math.max(max, Number.MIN_VALUE)) - logLo || 1 : 1;
-  const cx = dw / 2;
-  const cy = dh / 2;
-  const cr = Math.min(dw, dh) / 2;
-  for (let row = 0; row < dh; row++) {
-    for (let col = 0; col < dw; col++) {
-      const i = row * dw + col;
-      const v = data[i];
+  const cx = srcW / 2;
+  const cy = srcH / 2;
+  const cr = Math.min(srcW, srcH) / 2;
+  for (let row = 0; row < srcH; row++) {
+    for (let col = 0; col < srcW; col++) {
+      const i = row * srcW + col;
+      const v = srcData[i];
       let t = NaN;
       if (Number.isFinite(v) && !(nodata !== undefined && v === nodata)) {
         if (spec.circularMask) {
@@ -281,18 +301,18 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
   const white = spec.contours?.color?.startsWith('#')
     ? hexToRgb(spec.contours.color)
     : [255, 255, 255];
-  const grad = levels.length > 0 ? gradient(norm, dw, dh) : null;
+  const grad = levels.length > 0 ? gradient(norm, srcW, srcH) : null;
   // Convert gradient to value-per-*output*-pixel so contour bands have a
   // constant on-screen thickness after upscaling.
-  const gxStep = dw > 1 ? (dw - 1) / (renderW - 1) : 1;
-  const gyStep = dh > 1 ? (dh - 1) / (renderH - 1) : 1;
+  const gxStep = srcW > 1 ? (srcW - 1) / (renderW - 1) : 1;
+  const gyStep = srcH > 1 ? (srcH - 1) / (renderH - 1) : 1;
 
   const src = document.createElement('canvas');
-  src.width = dw;
-  src.height = dh;
+  src.width = srcW;
+  src.height = srcH;
   const srcCtx = src.getContext('2d');
   if (!srcCtx) throw new Error('plotRaster: 2D canvas unavailable');
-  const img = srcCtx.createImageData(dw, dh);
+  const img = srcCtx.createImageData(srcW, srcH);
   for (let i = 0; i < norm.length; i++) {
     const t = norm[i];
     if (Number.isNaN(t)) continue;
@@ -324,7 +344,7 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
   ctx.drawImage(src, margins.left, margins.top, renderW, renderH);
 
   if (spec.annotations?.length) {
-    const annScale = Math.max(renderW / dw, renderH / dh);
+    const annScale = Math.max(renderW / srcW, renderH / srcH);
     for (const a of spec.annotations) {
       const [px, py] = projectToPixel(a.lng, a.lat, boundsWgs84, renderW, renderH);
       const x = margins.left + px;
