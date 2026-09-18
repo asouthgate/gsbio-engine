@@ -111,6 +111,7 @@ function engineWithRun(): { engine: ReturnType<typeof createEngine>; actions: Ma
     updateFeatureGeometry: vi.fn(),
     addResultLayer: vi.fn(),
     removeResultLayer: vi.fn(),
+    setResultLayerOpacity: vi.fn(),
   };
   engine.setMapActions(actions);
   return { engine, actions };
@@ -258,14 +259,14 @@ describe('run pipeline', () => {
     // Per-layer show fans out exactly one addResultLayer per layer.
     engine.showResultLayer(runId, 'c1');
     expect(add).toHaveBeenCalledTimes(1);
-    expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ kind: 'image', url: 'data:1' }));
+    expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ kind: 'image', url: 'data:1' }), 1);
     expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
     expect(engine.getSnapshot().run.current!.visible).toBe(true);
 
     // Whole-run show adds the remaining layer only (idempotency).
     engine.showResult(runId);
     expect(add).toHaveBeenCalledTimes(2);
-    expect(add).toHaveBeenLastCalledWith(runId, 'c2', expect.objectContaining({ kind: 'image', url: 'data:2' }));
+    expect(add).toHaveBeenLastCalledWith(runId, 'c2', expect.objectContaining({ kind: 'image', url: 'data:2' }), 1);
     expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1', 'c2']);
 
     // Per-layer hide removes exactly that layer.
@@ -311,7 +312,7 @@ describe('run pipeline', () => {
     expect(engine.getSnapshot().run.current!.layerIds).toEqual([]);
   });
 
-  it('autoShowResults renders every layer on the map without a manual showResult', async () => {
+  it('autoShowResults selects a single layer without a manual showResult', async () => {
     const { engine, actions } = engineWithRun();
     const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
     engine.autoShowResults = true;
@@ -332,9 +333,9 @@ describe('run pipeline', () => {
     };
     engine.registerExecutor('hello-world', provider);
     await engine.run();
-    expect(add).toHaveBeenCalledTimes(2);
+    expect(add).toHaveBeenCalledTimes(1);
     expect(engine.getSnapshot().run.current!.visible).toBe(true);
-    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1', 'c2']);
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
   });
 
   it('autoShowResults stays a no-op when submit produced zero layers', async () => {
@@ -412,6 +413,83 @@ describe('run pipeline', () => {
     expect(run.status).toBe('failed');
     expect(run.error).toBe('backend down');
     expect(run.log.at(-1)).toMatchObject({ level: 'error', message: 'backend down' });
+  });
+
+  it('selectResultLayer switches between layers (single-select)', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    const remove = actions.removeResultLayer as ReturnType<typeof vi.fn>;
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return {
+          layers: [
+            { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
+            { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+          ],
+          summary: { count: 2 },
+        };
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+
+    engine.selectResultLayer(runId, 'c1');
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
+
+    engine.selectResultLayer(runId, 'c2');
+    expect(remove).toHaveBeenCalledWith(runId, 'c1');
+    expect(add).toHaveBeenCalledTimes(2);
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c2']);
+
+    // Re-selecting the already-visible layer is a no-op.
+    engine.selectResultLayer(runId, 'c2');
+    expect(add).toHaveBeenCalledTimes(2);
+  });
+
+  it('per-layer, per-run, and global opacity setters update state and fan out to the renderer', async () => {
+    const { engine, actions } = engineWithRun();
+    const setOpacity = actions.setResultLayerOpacity as ReturnType<typeof vi.fn>;
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return {
+          layers: [
+            { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
+            { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+          ],
+          summary: { count: 2 },
+        };
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+    engine.selectResultLayer(runId, 'c1');
+
+    // Per-layer: updates state, pushes to renderer only for the visible layer.
+    engine.setLayerOpacity(runId, 'c1', 0.5);
+    expect(engine.getSnapshot().run.current!.layerOpacities.c1).toBe(0.5);
+    expect(setOpacity).toHaveBeenCalledWith(runId, 'c1', 0.5);
+
+    // Per-run: sets every layer's opacity in state.
+    engine.setRunOpacity(runId, 0.25);
+    expect(engine.getSnapshot().run.current!.layerOpacities).toEqual({ c1: 0.25, c2: 0.25 });
+    expect(setOpacity).toHaveBeenCalledWith(runId, 'c1', 0.25);
+
+    // Global: sets all runs' layers (here a single run).
+    engine.setGlobalResultOpacity(0.1);
+    expect(engine.getSnapshot().run.current!.layerOpacities).toEqual({ c1: 0.1, c2: 0.1 });
+
+    // Out-of-range values are clamped to [0, 1].
+    engine.setLayerOpacity(runId, 'c2', 5);
+    expect(engine.getSnapshot().run.current!.layerOpacities.c2).toBe(1);
   });
 
   it('executor onLog calls from an aborted run do not pollute the next run', async () => {

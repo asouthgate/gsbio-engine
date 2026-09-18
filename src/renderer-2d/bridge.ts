@@ -99,9 +99,9 @@ export function wireEvents(
         draw.addFeatures([geojson as never]);
       } catch { /* ignore */ }
     },
-    addResultLayer: (rid, lid, env) => mapManager.addResultLayer(rid, lid, env),
+    addResultLayer: (rid, lid, env, opacity) => mapManager.addResultLayer(rid, lid, env, opacity),
     removeResultLayer: (rid, lid) => mapManager.removeResultLayer(rid, lid),
-    setRasterOpacity: (opacity: number) => mapManager.setRasterOpacity(opacity),
+    setResultLayerOpacity: (rid, lid, opacity) => mapManager.setResultLayerOpacity(rid, lid, opacity),
   });
 
   draw.on('finish', (id) => {

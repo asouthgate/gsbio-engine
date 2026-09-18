@@ -34,6 +34,7 @@ function makeSucceededRunWithLayers(engine: SimulationEngine, runId: string, lay
     layerIds: layers.map((l) => l.id),
     visibleLayerIds: [],
     visible: false,
+    layerOpacities: {},
   };
 
   // @ts-expect-error accessing private state for test setup
@@ -94,6 +95,7 @@ describe('ResultsPanel download', () => {
       layerIds: [],
       visibleLayerIds: [],
       visible: false,
+      layerOpacities: {},
     };
     // @ts-expect-error
     engine._state.run = { current: null, history: [record] };
@@ -142,5 +144,58 @@ describe('ResultsPanel download', () => {
 
     const buttons = screen.getAllByText('Download');
     expect(buttons).toHaveLength(2);
+  });
+});
+
+describe('ResultsPanel layer selection', () => {
+  it('selects a single layer via radio and replaces the previous selection', () => {
+    const engine = createEngine();
+    setupEngine(engine);
+    makeSucceededRunWithLayers(engine, 'run-1', 2);
+
+    render(
+      <EngineProvider engine={engine}>
+        <ResultsPanel />
+      </EngineProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText('Expand layers'));
+    fireEvent.click(screen.getByLabelText('layer-0'));
+    expect(engine.findRun('run-1')!.visibleLayerIds).toEqual(['layer-0']);
+
+    fireEvent.click(screen.getByLabelText('layer-1'));
+    expect(engine.findRun('run-1')!.visibleLayerIds).toEqual(['layer-1']);
+  });
+
+  it('deselects all layers via the None radio', () => {
+    const engine = createEngine();
+    setupEngine(engine);
+    makeSucceededRunWithLayers(engine, 'run-1', 2);
+
+    render(
+      <EngineProvider engine={engine}>
+        <ResultsPanel />
+      </EngineProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText('Expand layers'));
+    fireEvent.click(screen.getByLabelText('layer-0'));
+    fireEvent.click(screen.getByLabelText('None'));
+    expect(engine.findRun('run-1')!.visibleLayerIds).toEqual([]);
+  });
+
+  it('updates the whole run opacity from the per-run slider', () => {
+    const engine = createEngine();
+    setupEngine(engine);
+    makeSucceededRunWithLayers(engine, 'run-1', 2);
+
+    render(
+      <EngineProvider engine={engine}>
+        <ResultsPanel />
+      </EngineProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Layer opacity'), { target: { value: '0.5' } });
+    expect(engine.findRun('run-1')!.layerOpacities).toEqual({ 'layer-0': 0.5, 'layer-1': 0.5 });
   });
 });
