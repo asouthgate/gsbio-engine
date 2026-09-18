@@ -125,6 +125,8 @@ export interface RunRecord {
   layerNames: Record<string, string>;
   visibleLayerIds: string[];
   visible: boolean;
+  /** Per-layer opacity (0..1), keyed by layerId. Missing = 1. */
+  layerOpacities: Record<string, number>;
 }
 
 export interface RunSummary {
@@ -142,10 +144,11 @@ export interface RunSummary {
   visibleLayerIds: string[];
   visible: boolean;
   partial: boolean;
+  layerOpacities: Record<string, number>;
 }
 
 export interface ResultLayerActions {
-  addResultLayer: (runId: string, layerId: string, envelope: MapLayerEnvelope) => void;
+  addResultLayer: (runId: string, layerId: string, envelope: MapLayerEnvelope, opacity?: number) => void;
   removeResultLayer: (runId: string, layerId: string) => void;
-  setRasterOpacity: (opacity: number) => void;
+  setResultLayerOpacity: (runId: string, layerId: string, opacity: number) => void;
 }

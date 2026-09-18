@@ -85,11 +85,18 @@ export interface PointCollectionPaint {
   pointRadius?: number;
 }
 
+type OpacityProperty = 'raster-opacity' | 'fill-opacity' | 'line-opacity' | 'circle-opacity' | 'circle-stroke-opacity';
+
+interface ResultLayerReg {
+  id: string;
+  opacityProperty?: OpacityProperty;
+  baseOpacity: number;
+}
+
 export class MapManager {
   private map: maplibregl.Map | null = null;
-  private resultLayers = new Map<string, string[]>();
+  private resultLayers = new Map<string, ResultLayerReg[]>();
   private pointCollections = new Map<string, { sourceId: string; layerId: string }>();
-  private currentRasterOpacity = 1.0;
 
   constructor(private readonly options: MapManagerOptions, private readonly resultPaint: Required<ResultPaint>) {}
 
@@ -130,27 +137,29 @@ export class MapManager {
     return undefined;
   }
 
-  setRasterOpacity(opacity: number) {
-    this.currentRasterOpacity = Math.max(0, Math.min(1, opacity));
+  setResultLayerOpacity(runId: string, layerId: string, opacity: number) {
     if (!this.map) return;
-    for (const [, layerIds] of this.resultLayers) {
-      for (const id of layerIds) {
-        if (id.endsWith('-raster')) {
-          try { this.map.setPaintProperty(id, 'raster-opacity', this.currentRasterOpacity); } catch {}
-        }
+    const regs = this.resultLayers.get(this.layerKey(runId, layerId));
+    if (!regs) return;
+    const clamped = Math.max(0, Math.min(1, opacity));
+    for (const reg of regs) {
+      if (reg.opacityProperty) {
+        try { this.map.setPaintProperty(reg.id, reg.opacityProperty, reg.baseOpacity * clamped); } catch {}
       }
     }
   }
 
-  addResultLayer(runId: string, layerId: string, envelope: any) {
+  addResultLayer(runId: string, layerId: string, envelope: any, opacity = 1) {
     if (!this.map) return;
     const srcId = this.sourceId(runId, layerId);
     const key = this.layerKey(runId, layerId);
     this.removeResultLayer(runId, layerId);
 
-    const layerIds: string[] = [];
+    const regs: ResultLayerReg[] = [];
     const rp = this.resultPaint;
     const beforeId = this.getTerraDrawLayerId();
+    const clampedOpacity = Math.max(0, Math.min(1, opacity));
+    const paint = (property: OpacityProperty, base: number) => ({ [property]: base * clampedOpacity });
 
     if (envelope.kind === 'geojson') {
       this.map.addSource(srcId, { type: 'geojson', data: envelope.data });
@@ -159,7 +168,8 @@ export class MapManager {
         for (let i = 0; i < envelope.circleStyles.length; i++) {
           const s = envelope.circleStyles[i];
           const id = `${srcId}-circle-${i}`;
-          layerIds.push(id);
+          regs.push({ id, opacityProperty: 'circle-opacity', baseOpacity: 1 });
+          regs.push({ id, opacityProperty: 'circle-stroke-opacity', baseOpacity: 1 });
           this.map.addLayer({
             id,
             type: 'circle',
@@ -170,39 +180,44 @@ export class MapManager {
               'circle-color': s.color ?? rp.circleColor,
               ...(s.strokeColor ? { 'circle-stroke-color': s.strokeColor } : {}),
               ...(s.strokeWidth != null ? { 'circle-stroke-width': s.strokeWidth } : {}),
+              ...paint('circle-opacity', 1),
+              ...paint('circle-stroke-opacity', 1),
             },
           }, beforeId);
         }
-        this.resultLayers.set(key, layerIds);
+        this.resultLayers.set(key, regs);
         return;
       }
-      layerIds.push(`${srcId}-fill`, `${srcId}-line`, `${srcId}-circle`);
-      this.map.addLayer({ id: `${srcId}-fill`, type: 'fill', source: srcId, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity } }, beforeId);
-      this.map.addLayer({ id: `${srcId}-line`, type: 'line', source: srcId, filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth } }, beforeId);
-      this.map.addLayer({ id: `${srcId}-circle`, type: 'circle', source: srcId, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': rp.circleRadius, 'circle-color': rp.circleColor } }, beforeId);
+      regs.push({ id: `${srcId}-fill`, opacityProperty: 'fill-opacity', baseOpacity: rp.fillOpacity });
+      regs.push({ id: `${srcId}-line`, opacityProperty: 'line-opacity', baseOpacity: 1 });
+      regs.push({ id: `${srcId}-circle`, opacityProperty: 'circle-opacity', baseOpacity: 1 });
+      this.map.addLayer({ id: `${srcId}-fill`, type: 'fill', source: srcId, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': rp.fillColor, ...paint('fill-opacity', rp.fillOpacity) } }, beforeId);
+      this.map.addLayer({ id: `${srcId}-line`, type: 'line', source: srcId, filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth, ...paint('line-opacity', 1) } }, beforeId);
+      this.map.addLayer({ id: `${srcId}-circle`, type: 'circle', source: srcId, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': rp.circleRadius, 'circle-color': rp.circleColor, ...paint('circle-opacity', 1) } }, beforeId);
     } else if (envelope.kind === 'image') {
       this.map.addSource(srcId, { type: 'image', url: envelope.url, coordinates: [[envelope.bounds[0], envelope.bounds[3]], [envelope.bounds[2], envelope.bounds[3]], [envelope.bounds[2], envelope.bounds[1]], [envelope.bounds[0], envelope.bounds[1]]] });
-      layerIds.push(`${srcId}-raster`);
-      this.map.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId, paint: { 'raster-opacity': this.currentRasterOpacity } }, beforeId);
+      regs.push({ id: `${srcId}-raster`, opacityProperty: 'raster-opacity', baseOpacity: 1 });
+      this.map.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId, paint: paint('raster-opacity', 1) }, beforeId);
     } else {
       this.map.addSource(srcId, { type: envelope.type, tiles: [envelope.url], tileSize: 256 });
       if (envelope.type === 'raster') {
-        layerIds.push(`${srcId}-raster`);
-        this.map.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId }, beforeId);
+        regs.push({ id: `${srcId}-raster`, opacityProperty: 'raster-opacity', baseOpacity: 1 });
+        this.map.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId, paint: paint('raster-opacity', 1) }, beforeId);
       } else {
-        layerIds.push(`${srcId}-line`, `${srcId}-fill`);
-        this.map.addLayer({ id: `${srcId}-line`, type: 'line', source: srcId, 'source-layer': envelope.sourceLayer, paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth } }, beforeId);
-        this.map.addLayer({ id: `${srcId}-fill`, type: 'fill', source: srcId, 'source-layer': envelope.sourceLayer, paint: { 'fill-color': rp.fillColor, 'fill-opacity': rp.fillOpacity } }, beforeId);
+        regs.push({ id: `${srcId}-line`, opacityProperty: 'line-opacity', baseOpacity: 1 });
+        regs.push({ id: `${srcId}-fill`, opacityProperty: 'fill-opacity', baseOpacity: rp.fillOpacity });
+        this.map.addLayer({ id: `${srcId}-line`, type: 'line', source: srcId, 'source-layer': envelope.sourceLayer, paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth, ...paint('line-opacity', 1) } }, beforeId);
+        this.map.addLayer({ id: `${srcId}-fill`, type: 'fill', source: srcId, 'source-layer': envelope.sourceLayer, paint: { 'fill-color': rp.fillColor, ...paint('fill-opacity', rp.fillOpacity) } }, beforeId);
       }
     }
-    this.resultLayers.set(key, layerIds);
+    this.resultLayers.set(key, regs);
   }
 
   removeResultLayer(runId: string, layerId: string) {
     if (!this.map) return;
     const key = this.layerKey(runId, layerId);
-    const layerIds = this.resultLayers.get(key);
-    layerIds?.forEach(id => { try { this.map!.removeLayer(id); } catch {} });
+    const regs = this.resultLayers.get(key);
+    regs?.forEach(reg => { try { this.map!.removeLayer(reg.id); } catch {} });
     try { this.map.removeSource(this.sourceId(runId, layerId)); } catch {}
     this.resultLayers.delete(key);
   }

@@ -22,6 +22,9 @@ import {
   pushCurrentToHistory,
   applyRunVisibility,
   applyLayerVisibility,
+  applyLayerSelection,
+  applyLayerOpacity,
+  layerOpacity as layerOpacityOf,
   findRun as findRunInState,
   allSummaries as computeAllSummaries,
 } from './runHelpers';
@@ -272,7 +275,7 @@ export class SimulationEngine {
     const layers = this.resolveRunLayers(runId);
     for (const layerId of toAdd) {
       const envelope = layers.get(layerId);
-      if (envelope) this.mapActions?.addResultLayer(runId, layerId, envelope);
+      if (envelope) this.mapActions?.addResultLayer(runId, layerId, envelope, layerOpacityOf(rec, layerId));
     }
     this._state.run = applyRunVisibility(this._state.run, runId, true);
     this.emit();
@@ -299,7 +302,7 @@ export class SimulationEngine {
     const layers = this.resolveRunLayers(runId);
     const envelope = layers.get(layerId);
     if (!envelope) return;
-    this.mapActions?.addResultLayer(runId, layerId, envelope);
+    this.mapActions?.addResultLayer(runId, layerId, envelope, layerOpacityOf(rec, layerId));
     this._state.run = applyLayerVisibility(this._state.run, runId, layerId, true);
     this.emit();
   };
@@ -317,6 +320,63 @@ export class SimulationEngine {
     if (!rec || !rec.layerIds.includes(layerId)) return;
     if (rec.visibleLayerIds.includes(layerId)) this.hideResultLayer(runId, layerId);
     else this.showResultLayer(runId, layerId);
+  };
+
+  /** Single-select: make `layerId` the run's only visible layer. */
+  selectResultLayer = (runId: string, layerId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || !rec.layerIds.includes(layerId)) return;
+    if (rec.visibleLayerIds.length === 1 && rec.visibleLayerIds[0] === layerId) return;
+    const layers = this.resolveRunLayers(runId);
+    const envelope = layers.get(layerId);
+    if (!envelope) return;
+    for (const id of rec.visibleLayerIds) this.mapActions?.removeResultLayer(runId, id);
+    this.mapActions?.addResultLayer(runId, layerId, envelope, layerOpacityOf(rec, layerId));
+    this._state.run = applyLayerSelection(this._state.run, runId, layerId);
+    this.emit();
+  };
+
+  setLayerOpacity = (runId: string, layerId: string, opacity: number): void => {
+    const rec = this.findRun(runId);
+    if (!rec || !rec.layerIds.includes(layerId)) return;
+    const clamped = Math.max(0, Math.min(1, opacity));
+    this._state.run = applyLayerOpacity(this._state.run, runId, { [layerId]: clamped });
+    if (rec.visibleLayerIds.includes(layerId)) {
+      this.mapActions?.setResultLayerOpacity(runId, layerId, clamped);
+    }
+    this.emit();
+  };
+
+  setRunOpacity = (runId: string, opacity: number): void => {
+    const rec = this.findRun(runId);
+    if (!rec) return;
+    const clamped = Math.max(0, Math.min(1, opacity));
+    const patch: Record<string, number> = {};
+    for (const layerId of rec.layerIds) patch[layerId] = clamped;
+    this._state.run = applyLayerOpacity(this._state.run, runId, patch);
+    for (const layerId of rec.layerIds) {
+      if (rec.visibleLayerIds.includes(layerId)) {
+        this.mapActions?.setResultLayerOpacity(runId, layerId, clamped);
+      }
+    }
+    this.emit();
+  };
+
+  setGlobalResultOpacity = (opacity: number): void => {
+    const clamped = Math.max(0, Math.min(1, opacity));
+    const { current, history } = this._state.run;
+    const recs = current ? [current, ...history] : history;
+    for (const rec of recs) {
+      const patch: Record<string, number> = {};
+      for (const layerId of rec.layerIds) patch[layerId] = clamped;
+      this._state.run = applyLayerOpacity(this._state.run, rec.runId, patch);
+      for (const layerId of rec.layerIds) {
+        if (rec.visibleLayerIds.includes(layerId)) {
+          this.mapActions?.setResultLayerOpacity(rec.runId, layerId, clamped);
+        }
+      }
+    }
+    this.emit();
   };
 
   clearResult = (runId: string): void => {
@@ -433,6 +493,8 @@ export class SimulationEngine {
             layerNames[l.id] = (l as { name?: string }).name ?? l.id;
           }
           const taskId = (result as Record<string, unknown>).taskId as string | undefined;
+          const layerOpacities: Record<string, number> = {};
+          for (const id of layerIds) layerOpacities[id] = 1;
           this._state.run = { ...this._state.run, current: {
             ...this._state.run.current!,
             status: 'succeeded',
@@ -443,18 +505,16 @@ export class SimulationEngine {
             layerNames,
             visibleLayerIds: [],
             visible: false,
+            layerOpacities,
           }};
           this.emit();
           rawAppend('info', `Completed · ${layerIds.length} layer${layerIds.length === 1 ? '' : 's'}`);
           if (this.autoShowResults && layerIds.length > 0) {
             const modelDef = this.models.get(modelId);
             const autoIds = (modelDef?.autoShowLayerIds ?? []).filter((id) => layerIds.includes(id));
-            if (autoIds.length > 0) {
-              for (const id of autoIds) this.showResultLayer(runId, id);
-            } else if (defaultLayerId && layerIds.includes(defaultLayerId)) {
-              this.showResultLayer(runId, defaultLayerId);
-            } else {
-              this.showResult(runId);
+            const pick = autoIds[0] ?? defaultLayerId ?? layerIds[0];
+            if (pick && layerIds.includes(pick)) {
+              this.selectResultLayer(runId, pick);
             }
           }
         }
@@ -487,10 +547,6 @@ export class SimulationEngine {
   };
 
   cancelRun = (): void => { this._abort?.abort(); };
-
-  setResultOpacity = (opacity: number): void => {
-    this.mapActions?.setRasterOpacity(opacity);
-  };
 }
 
 export function createEngine(dataStore?: DataStore): SimulationEngine {

@@ -11,7 +11,18 @@ export function emptyRunRecord(runId: string, modelId: string, params: ModelPara
   return {
     runId, modelId, params, status: 'idle', result: null, error: null, progress: null,
     startedAt, finishedAt: null, log: [], layerIds: [], layerNames: {}, visibleLayerIds: [], visible: false,
+    layerOpacities: {},
   };
+}
+
+/** Effective opacity for a layer, defaulting to 1 (fully opaque). */
+export function layerOpacity(rec: RunRecord, layerId: string): number {
+  return rec.layerOpacities[layerId] ?? 1;
+}
+
+/** Set the opacities for a run's layers, returning a new record. */
+export function withLayerOpacities(rec: RunRecord, patch: Record<string, number>): RunRecord {
+  return { ...rec, layerOpacities: { ...rec.layerOpacities, ...patch } };
 }
 
 export function setRunStatus(rec: RunRecord, status: RunStatus): RunRecord {
@@ -62,6 +73,33 @@ export function applyLayerVisibility(state: RunState, runId: string, layerId: st
   };
 }
 
+/** Single-select: make `layerId` the run's only visible layer. */
+export function applyLayerSelection(state: RunState, runId: string, layerId: string): RunState {
+  const patch = (rec: RunRecord): RunRecord => {
+    if (!rec.layerIds.includes(layerId)) return rec;
+    return withLayerVisibility(rec, [layerId]);
+  };
+  if (state.current?.runId === runId) {
+    return { ...state, current: patch(state.current) };
+  }
+  return {
+    ...state,
+    history: state.history.map((r: RunRecord) => (r.runId === runId ? patch(r) : r)),
+  };
+}
+
+/** Apply a per-layer opacity patch to a run. */
+export function applyLayerOpacity(state: RunState, runId: string, patch: Record<string, number>): RunState {
+  const patchRec = (rec: RunRecord): RunRecord => withLayerOpacities(rec, patch);
+  if (state.current?.runId === runId) {
+    return { ...state, current: patchRec(state.current) };
+  }
+  return {
+    ...state,
+    history: state.history.map((r: RunRecord) => (r.runId === runId ? patchRec(r) : r)),
+  };
+}
+
 export function findRun(state: RunState, runId: string): RunRecord | undefined {
   return state.current?.runId === runId ? state.current
     : state.history.find((r: RunRecord) => r.runId === runId);
@@ -75,6 +113,7 @@ export function toSummary(rec: RunRecord): RunSummary {
     startedAt: rec.startedAt, finishedAt: rec.finishedAt, log: rec.log,
     warnings: rec.log.filter((e: RunLogEntry) => e.level === 'warning').map((e: RunLogEntry) => e.message),
     layerIds: rec.layerIds, layerNames: rec.layerNames, visibleLayerIds: rec.visibleLayerIds, visible, partial,
+    layerOpacities: rec.layerOpacities,
   };
 }
 

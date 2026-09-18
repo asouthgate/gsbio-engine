@@ -30,35 +30,34 @@ function logTimeOf(ts: number): string {
 
 function RunRow({
   rec,
-  onToggle,
   onClear,
-  onToggleLayer,
+  onSelectLayer,
+  onSelectNone,
+  onOpacityChange,
   onViewLog,
   onDownload,
 }: {
   rec: RunSummary;
-  onToggle: () => void;
   onClear: () => void;
-  onToggleLayer: (layerId: string) => void;
+  onSelectLayer: (layerId: string) => void;
+  onSelectNone: () => void;
+  onOpacityChange: (opacity: number) => void;
   onViewLog?: () => void;
   onDownload?: () => void;
 }) {
   const canShow = rec.status === 'succeeded' && rec.layerIds.length > 0;
   const [expanded, setExpanded] = useState(false);
   const [logExpanded, setLogExpanded] = useState(false);
-  // Master toggle reads the whole-run state: indeterminate when partial.
-  // The button label adapts so the user knows the next action.
-  const label = rec.partial
-    ? 'Show all on map'
-    : rec.visible
-      ? 'Hide on map'
-      : 'Show on map';
-  const hasMulti = rec.layerIds.length > 1;
   const hasWarnings = rec.warnings.length > 0;
   const hasLog = rec.log.length > 0;
 
+  const radioName = `layer-${rec.runId}`;
+  const noneSelected = rec.visibleLayerIds.length === 0;
+  // All layers of a run share an opacity (set via the per-run slider).
+  const runOpacity = rec.layerOpacities[rec.layerIds[0] ?? ''] ?? 1;
+
   return (
-    <li className={`run-item run-item--${rec.status}${rec.visible ? ' run-item--visible' : ''}${rec.partial ? ' run-item--partial' : ''}`}>
+    <li className={`run-item run-item--${rec.status}${rec.visible ? ' run-item--visible' : ''}`}>
       <div className="run-item__head">
         <span className="run-item__name">{rec.modelId} · {timeOf(rec.startedAt)}</span>
         <span className="run-item__status">{STATUS_TEXT[rec.status]}</span>
@@ -73,16 +72,6 @@ function RunRow({
       )}
       <div className="run-item__actions">
         {canShow && (
-          <button
-            type="button"
-            className="btn btn-ghost run-item__toggle"
-            onClick={onToggle}
-            aria-pressed={rec.visible && !rec.partial}
-          >
-            {label}
-          </button>
-        )}
-        {canShow && hasMulti && (
           <button
             type="button"
             className="btn btn-ghost run-item__expand"
@@ -124,17 +113,46 @@ function RunRow({
           ✕
         </button>
       </div>
-      {canShow && hasMulti && expanded && (
+      {canShow && (
+        <div className="run-item__opacity">
+          <span className="run-item__opacity-label">Opacity</span>
+          <div className="range-field">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={runOpacity}
+              aria-label="Layer opacity"
+              onChange={(e) => onOpacityChange(Number(e.target.value))}
+            />
+            <span className="range-value">{Math.round(runOpacity * 100)}%</span>
+          </div>
+        </div>
+      )}
+      {canShow && expanded && (
         <ul className="run-item__layers">
+          <li className="run-item__layer">
+            <label className="run-item__layer-label">
+              <input
+                type="radio"
+                name={radioName}
+                checked={noneSelected}
+                onChange={onSelectNone}
+              />
+              <span className="run-item__layer-id">None</span>
+            </label>
+          </li>
           {rec.layerIds.map((layerId) => {
-            const checked = rec.visibleLayerIds.includes(layerId);
+            const checked = rec.visibleLayerIds.length === 1 && rec.visibleLayerIds[0] === layerId;
             return (
               <li key={layerId} className="run-item__layer">
                 <label className="run-item__layer-label">
                   <input
-                    type="checkbox"
+                    type="radio"
+                    name={radioName}
                     checked={checked}
-                    onChange={() => onToggleLayer(layerId)}
+                    onChange={() => onSelectLayer(layerId)}
                   />
                   <span className="run-item__layer-id">{rec.layerNames?.[layerId] ?? layerId}</span>
                 </label>
@@ -167,7 +185,7 @@ export interface ResultsPanelProps {
 }
 
 export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload }: ResultsPanelProps) {
-  const { summaries, toggleResult, toggleResultLayer, clearResult, clearAll } = useResults();
+  const { summaries, selectResultLayer, hideResult, setRunOpacity, clearResult, clearAll } = useResults();
   const rows = summaries;
 
   return (
@@ -188,8 +206,9 @@ export function ResultsPanel({ className = 'results-panel', onViewLog, onDownloa
             <RunRow
               key={r.runId}
               rec={r}
-              onToggle={() => toggleResult(r.runId)}
-              onToggleLayer={(layerId) => toggleResultLayer(r.runId, layerId)}
+              onSelectLayer={(layerId) => selectResultLayer(r.runId, layerId)}
+              onSelectNone={() => hideResult(r.runId)}
+              onOpacityChange={(opacity) => setRunOpacity(r.runId, opacity)}
               onClear={() => clearResult(r.runId)}
               onViewLog={onViewLog ? () => onViewLog(r.runId, r.log) : undefined}
               onDownload={onDownload ? () => onDownload(r.runId) : undefined}
