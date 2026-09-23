@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PMTiles, type Source, type RangeResponse } from 'pmtiles';
 import { TerraDraw2DOptions, ResultPaint } from './TerraDraw2DRenderer';
+import type { MapLayerEnvelope } from '../core';
 
 let pmtilesProtocolRegistered = false;
 const pmtilesCache = new Map<string, PMTiles>();
@@ -97,6 +98,7 @@ export class MapManager {
   private map: maplibregl.Map | null = null;
   private resultLayers = new Map<string, ResultLayerReg[]>();
   private pointCollections = new Map<string, { sourceId: string; layerId: string }>();
+  private featureRasters = new Map<string, { sourceId: string; layerId: string }>();
 
   constructor(private readonly options: MapManagerOptions, private readonly resultPaint: Required<ResultPaint>) {}
 
@@ -251,9 +253,44 @@ export class MapManager {
     this.pointCollections.delete(id);
   }
 
+  addFeatureRaster(id: string, envelope: MapLayerEnvelope, opacity = 1) {
+    if (!this.map) return;
+    if (envelope.kind !== 'image') return;
+    this.removeFeatureRaster(id);
+
+    const sourceId = `gsbio-feature-raster-${id}`;
+    const layerId = `${sourceId}-raster`;
+    const [w, s, e, n] = envelope.bounds;
+    const beforeId = this.getTerraDrawLayerId();
+    const clamped = Math.max(0, Math.min(1, opacity));
+
+    this.map.addSource(sourceId, {
+      type: 'image',
+      url: envelope.url,
+      coordinates: [[w, n], [e, n], [e, s], [w, s]],
+    });
+    this.map.addLayer({
+      id: layerId,
+      type: 'raster',
+      source: sourceId,
+      paint: { 'raster-opacity': clamped },
+    }, beforeId);
+    this.featureRasters.set(id, { sourceId, layerId });
+  }
+
+  removeFeatureRaster(id: string) {
+    if (!this.map) return;
+    const reg = this.featureRasters.get(id);
+    if (!reg) return;
+    try { this.map.removeLayer(reg.layerId); } catch {}
+    try { this.map.removeSource(reg.sourceId); } catch {}
+    this.featureRasters.delete(id);
+  }
+
   unmount() {
     this.resultLayers.clear();
     this.pointCollections.clear();
+    this.featureRasters.clear();
     try { this.map?.remove(); } catch {}
     this.map = null;
   }
