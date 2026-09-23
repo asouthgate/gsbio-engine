@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { encodeGeoTiff } from './geotiff';
-import { decodeGeoTiff, alignRasterToGrid, type TargetGrid } from './geotiffDecode';
+import { decodeGeoTiff } from './geotiffDecode';
+import { alignRasterToGrid, type TargetGrid } from './projection';
 
 describe('decodeGeoTiff', () => {
   it('round-trips a BNG grid produced by encodeGeoTiff', async () => {

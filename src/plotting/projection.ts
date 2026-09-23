@@ -172,6 +172,53 @@ export function reprojectGridToWgs84(
   return { data: out, width: outW, height: outH, boundsWgs84: [minLng, minLat, maxLng, maxLat] };
 }
 
+/** A north-up BNG grid definition that a raster is aligned onto. */
+export interface TargetGrid {
+  m: number;
+  n: number;
+  pixw: number;
+  xmin: number;
+  ymin: number;
+  xmax: number;
+  ymax: number;
+}
+
+/**
+ * Resample a native-CRS raster onto a north-up BNG grid, bilinearly
+ * interpolating and reprojecting from WGS84 when the source CRS is geographic.
+ * Returns a `Float32Array` of length `m * n` (row 0 = north edge); cells outside
+ * the source footprint are NaN. This is the inverse of `reprojectGridToWgs84`.
+ */
+export function alignRasterToGrid(raster: NativeRasterGrid, grid: TargetGrid): Float32Array {
+  const { data, width, height, bounds, crs, nodata } = raster;
+  const out = new Float32Array(grid.m * grid.n);
+
+  const srcPixW = width > 0 ? (bounds[2] - bounds[0]) / width : 0;
+  const srcPixH = height > 0 ? (bounds[3] - bounds[1]) / height : 0;
+
+  for (let row = 0; row < grid.m; row++) {
+    const northing = grid.ymax - (row + 0.5) * grid.pixw;
+    for (let col = 0; col < grid.n; col++) {
+      const easting = grid.xmin + (col + 0.5) * grid.pixw;
+
+      let sx: number;
+      let sy: number;
+      if (crs === 'EPSG:27700') {
+        sx = srcPixW > 0 ? (easting - bounds[0]) / srcPixW : 0;
+        sy = srcPixH > 0 ? (bounds[3] - northing) / srcPixH : 0;
+      } else {
+        const [lng, lat] = bngToWgs84LngLat(easting, northing);
+        sx = srcPixW > 0 ? (lng - bounds[0]) / srcPixW : 0;
+        sy = srcPixH > 0 ? (bounds[3] - lat) / srcPixH : 0;
+      }
+
+      out[row * grid.n + col] = sampleBilinear(data, width, height, sx, sy, nodata);
+    }
+  }
+
+  return out;
+}
+
 /** Split a grid-space coordinate into the two enclosing indices + lower weight. */
 function interpAxis(g: number, size: number): { i: number; j: number; f: number } {
   let t = g;
@@ -183,7 +230,7 @@ function interpAxis(g: number, size: number): { i: number; j: number; f: number 
 }
 
 /** Bilinear sample of `data` at source-grid position (col, row), NaN-aware. */
-function sampleBilinear(
+export function sampleBilinear(
   data: Float32Array,
   w: number,
   h: number,
