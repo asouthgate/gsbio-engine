@@ -64,18 +64,20 @@ export function wireEvents(
   });
 
   engine.setMapActions({
-    addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => {
+    addFeatureToMap: (id: string, geojson: GeoJSON.Feature, raster) => {
       if (isMultiPoint(geojson)) {
         mapManager.addPointCollection(id, geojson, resolvePointPaint(geojson));
         return;
       }
       try { draw.addFeatures([geojson as never]); } catch { /* ignore */ }
+      if (raster) mapManager.addFeatureRaster(id, raster);
     },
     removeFeatureFromMap: (id: string) => {
       mapManager.removePointCollection(id);
+      mapManager.removeFeatureRaster(id);
       try { draw.removeFeatures([id]); } catch { /* feature may not exist */ }
     },
-    setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature) => {
+    setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature, raster) => {
       if (isMultiPoint(geojson)) {
         if (visible) mapManager.addPointCollection(id, geojson, resolvePointPaint(geojson));
         else mapManager.removePointCollection(id);
@@ -88,6 +90,10 @@ export function wireEvents(
           draw.addFeatures([geojson as never]);
         }
       } catch { /* ignore */ }
+      if (raster) {
+        if (visible) mapManager.addFeatureRaster(id, raster);
+        else mapManager.removeFeatureRaster(id);
+      }
     },
     updateFeatureGeometry: (id: string, geojson: GeoJSON.Feature) => {
       if (isMultiPoint(geojson)) {

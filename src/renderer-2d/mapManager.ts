@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PMTiles, type Source, type RangeResponse } from 'pmtiles';
 import { TerraDraw2DOptions, ResultPaint } from './TerraDraw2DRenderer';
+import type { MapLayerEnvelope } from '../core';
 
 let pmtilesProtocolRegistered = false;
 const pmtilesCache = new Map<string, PMTiles>();
@@ -97,6 +98,7 @@ export class MapManager {
   private map: maplibregl.Map | null = null;
   private resultLayers = new Map<string, ResultLayerReg[]>();
   private pointCollections = new Map<string, { sourceId: string; layerId: string }>();
+  private featureRasters = new Map<string, { sourceId: string; layerId: string }>();
 
   constructor(private readonly options: MapManagerOptions, private readonly resultPaint: Required<ResultPaint>) {}
 
@@ -125,6 +127,14 @@ export class MapManager {
 
   private sourceId(runId: string, layerId: string): string { return `gsbio-result-${runId}__${layerId}`; }
   private layerKey(runId: string, layerId: string): string { return `${runId}__${layerId}`; }
+
+  private addImageRaster(sourceId: string, url: string, bounds: [number, number, number, number], opacity: number, beforeId?: string): string {
+    const [w, s, e, n] = bounds;
+    this.map!.addSource(sourceId, { type: 'image', url, coordinates: [[w, n], [e, n], [e, s], [w, s]] });
+    const layerId = `${sourceId}-raster`;
+    this.map!.addLayer({ id: layerId, type: 'raster', source: sourceId, paint: { 'raster-opacity': opacity } }, beforeId);
+    return layerId;
+  }
 
   private getTerraDrawLayerId(): string | undefined {
     if (!this.map) return undefined;
@@ -195,9 +205,8 @@ export class MapManager {
       this.map.addLayer({ id: `${srcId}-line`, type: 'line', source: srcId, filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': rp.lineColor, 'line-width': rp.lineWidth, ...paint('line-opacity', 1) } }, beforeId);
       this.map.addLayer({ id: `${srcId}-circle`, type: 'circle', source: srcId, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': rp.circleRadius, 'circle-color': rp.circleColor, ...paint('circle-opacity', 1) } }, beforeId);
     } else if (envelope.kind === 'image') {
-      this.map.addSource(srcId, { type: 'image', url: envelope.url, coordinates: [[envelope.bounds[0], envelope.bounds[3]], [envelope.bounds[2], envelope.bounds[3]], [envelope.bounds[2], envelope.bounds[1]], [envelope.bounds[0], envelope.bounds[1]]] });
+      this.addImageRaster(srcId, envelope.url, envelope.bounds, clampedOpacity, beforeId);
       regs.push({ id: `${srcId}-raster`, opacityProperty: 'raster-opacity', baseOpacity: 1 });
-      this.map.addLayer({ id: `${srcId}-raster`, type: 'raster', source: srcId, paint: paint('raster-opacity', 1) }, beforeId);
     } else {
       this.map.addSource(srcId, { type: envelope.type, tiles: [envelope.url], tileSize: 256 });
       if (envelope.type === 'raster') {
@@ -251,9 +260,32 @@ export class MapManager {
     this.pointCollections.delete(id);
   }
 
+  addFeatureRaster(id: string, envelope: MapLayerEnvelope, opacity = 1) {
+    if (!this.map) return;
+    if (envelope.kind !== 'image') return;
+    this.removeFeatureRaster(id);
+
+    const sourceId = `gsbio-feature-raster-${id}`;
+    const beforeId = this.getTerraDrawLayerId();
+    const clamped = Math.max(0, Math.min(1, opacity));
+
+    const layerId = this.addImageRaster(sourceId, envelope.url, envelope.bounds, clamped, beforeId);
+    this.featureRasters.set(id, { sourceId, layerId });
+  }
+
+  removeFeatureRaster(id: string) {
+    if (!this.map) return;
+    const reg = this.featureRasters.get(id);
+    if (!reg) return;
+    try { this.map.removeLayer(reg.layerId); } catch {}
+    try { this.map.removeSource(reg.sourceId); } catch {}
+    this.featureRasters.delete(id);
+  }
+
   unmount() {
     this.resultLayers.clear();
     this.pointCollections.clear();
+    this.featureRasters.clear();
     try { this.map?.remove(); } catch {}
     this.map = null;
   }

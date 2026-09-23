@@ -83,7 +83,7 @@ export class SimulationEngine {
   addFeature(feature: DataFeature): void {
     this.dataStore.addFeature(feature);
     const gj = this._withTerraDrawMode(feature);
-    this.mapActions?.addFeatureToMap(feature.id, gj);
+    this.mapActions?.addFeatureToMap(feature.id, gj, feature.raster);
     this.emit();
   }
 
@@ -153,7 +153,7 @@ export class SimulationEngine {
   toggleFeatureVisibility(id: string): void {
     const updated = this.dataStore.toggleVisibility(id);
     if (!updated) return;
-    this.mapActions?.setFeatureVisibility(id, updated.visible, this._withTerraDrawMode(updated));
+    this.mapActions?.setFeatureVisibility(id, updated.visible, this._withTerraDrawMode(updated), updated.raster);
     this.emit();
   }
 

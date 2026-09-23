@@ -1,4 +1,5 @@
 import type { LngLat } from './spatial';
+import type { MapLayerEnvelope } from './spatial.types';
 
 export type GeometryKind = 'point' | 'linestring' | 'polygon' | 'circle' | 'multipoint';
 
@@ -18,6 +19,8 @@ export interface DataFeature {
   geojson: GeoJSON.Feature;
   circle?: CircleGeometry;
   data?: Record<string, unknown>;
+  /** Optional raster overlay rendered on the map alongside the vector. */
+  raster?: MapLayerEnvelope;
 }
 
 export interface FeatureState {
@@ -26,8 +29,8 @@ export interface FeatureState {
 }
 
 export interface FeatureMapActions {
-  addFeatureToMap: (id: string, geojson: GeoJSON.Feature) => void;
+  addFeatureToMap: (id: string, geojson: GeoJSON.Feature, raster?: MapLayerEnvelope) => void;
   removeFeatureFromMap: (id: string) => void;
-  setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature) => void;
+  setFeatureVisibility: (id: string, visible: boolean, geojson: GeoJSON.Feature, raster?: MapLayerEnvelope) => void;
   updateFeatureGeometry: (id: string, geojson: GeoJSON.Feature) => void;
 }
