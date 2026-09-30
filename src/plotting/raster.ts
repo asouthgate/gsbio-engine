@@ -339,8 +339,7 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
   canvas.height = outH;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('plotRaster: 2D canvas unavailable');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(src, margins.left, margins.top, renderW, renderH);
 
   if (spec.annotations?.length) {
