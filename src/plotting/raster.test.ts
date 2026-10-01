@@ -6,6 +6,7 @@ import {
   invertTransform,
   expandBoundsForMargins,
   projectToPixel,
+  maskToInscribedCircle,
 } from './raster';
 import { paletteLUT } from './palettes';
 
@@ -72,6 +73,30 @@ describe('projectToPixel', () => {
     const b: [number, number, number, number] = [0, 0, 10, 10];
     expect(projectToPixel(0, 10, b, 11, 11)).toEqual([0, 0]);
     expect(projectToPixel(10, 0, b, 11, 11)).toEqual([10, 10]);
+  });
+});
+
+describe('maskToInscribedCircle', () => {
+  it('keeps the centre and NaN-masks corners', () => {
+    const data = new Float32Array(25).fill(1); // 5x5
+    const out = maskToInscribedCircle(data, 5, 5);
+    // corners fall outside the inscribed circle (radius 2.5, centre 2.5,2.5)
+    expect(Number.isNaN(out[0])).toBe(true);
+    expect(Number.isNaN(out[4])).toBe(true);
+    expect(Number.isNaN(out[20])).toBe(true);
+    expect(Number.isNaN(out[24])).toBe(true);
+    // edge midpoints and centre stay finite
+    expect(out[2]).toBe(1); // top
+    expect(out[10]).toBe(1); // left
+    expect(out[12]).toBe(1); // centre
+    expect(out[14]).toBe(1); // right
+    expect(out[22]).toBe(1); // bottom
+  });
+
+  it('does not mutate the input array', () => {
+    const data = new Float32Array(25).fill(2);
+    maskToInscribedCircle(data, 5, 5);
+    expect(data.every((v) => v === 2)).toBe(true);
   });
 });
 

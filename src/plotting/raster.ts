@@ -87,6 +87,31 @@ export interface PlotMargins {
 /** Minimum data-region resolution (upscaled if smaller) so bars/labels are smooth. */
 const MIN_RENDER = 1000;
 
+/**
+ * Return a copy of `data` with cells outside the native grid's inscribed circle
+ * set to NaN. The circle is centred on the grid and sized to the shorter axis,
+ * which matches how the current maps are authored (a square roost buffer, circle
+ * radius = half the side). Masking here — before any reprojection — keeps the
+ * circle exact, whereas masking a reprojected WGS84 grid inflates the radius by
+ * the grid-convergence rotation and clips the cardinal edges.
+ */
+export function maskToInscribedCircle(data: Float32Array, w: number, h: number): Float32Array {
+  const out = new Float32Array(data);
+  const cx = w / 2;
+  const cy = h / 2;
+  const cr = Math.min(w, h) / 2;
+  const r2 = cr * cr;
+  for (let row = 0; row < h; row++) {
+    const ddy = row + 0.5 - cy;
+    const rowBase = row * w;
+    for (let col = 0; col < w; col++) {
+      const ddx = col + 0.5 - cx;
+      if (ddx * ddx + ddy * ddy > r2) out[rowBase + col] = NaN;
+    }
+  }
+  return out;
+}
+
 export function computeDomain(
   data: Float32Array,
   opts: { vmin?: number; vmax?: number; scale?: RasterScale; nodata?: number } = {},
@@ -217,12 +242,12 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
   // Reproject non-WGS84 rasters onto an axis-aligned WGS84 grid first, so the
   // heatmap renders (and georeferences) correctly despite the grid rotation.
   const nativeCrs: RasterCrs = crs ?? 'EPSG:4326';
-  let srcData = data;
+  let srcData = spec.circularMask ? maskToInscribedCircle(data, dw, dh) : data;
   let srcW = dw;
   let srcH = dh;
   let srcBounds: [number, number, number, number] = bounds;
   if (nativeCrs === 'EPSG:27700') {
-    const r = reprojectGridToWgs84({ data, width: dw, height: dh, crs: nativeCrs, bounds, nodata });
+    const r = reprojectGridToWgs84({ data: srcData, width: dw, height: dh, crs: nativeCrs, bounds, nodata });
     srcData = r.data;
     srcW = r.width;
     srcH = r.height;
@@ -270,23 +295,12 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
   const range = max - min || 1;
   const logLo = scale === 'log' ? Math.log(Math.max(min, Number.MIN_VALUE)) : 0;
   const logRange = scale === 'log' ? Math.log(Math.max(max, Number.MIN_VALUE)) - logLo || 1 : 1;
-  const cx = srcW / 2;
-  const cy = srcH / 2;
-  const cr = Math.min(srcW, srcH) / 2;
   for (let row = 0; row < srcH; row++) {
     for (let col = 0; col < srcW; col++) {
       const i = row * srcW + col;
       const v = srcData[i];
       let t = NaN;
       if (Number.isFinite(v) && !(nodata !== undefined && v === nodata)) {
-        if (spec.circularMask) {
-          const ddx = col + 0.5 - cx;
-          const ddy = row + 0.5 - cy;
-          if (ddx * ddx + ddy * ddy > cr * cr) {
-            norm[i] = NaN;
-            continue;
-          }
-        }
         t = scale === 'log'
           ? (Math.log(Math.max(v, min)) - logLo) / logRange
           : (v - min) / range;
