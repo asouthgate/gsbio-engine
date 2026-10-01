@@ -40,6 +40,8 @@ export interface DisplayMeta {
   unit?: string;
   /** Clip display to the inscribed circle (current maps). */
   circularMask?: boolean;
+  /** When true, alpha ramps linearly with the normalised value (0 = transparent, 1 = opaque). */
+  alphaRamp?: boolean;
 }
 
 export interface RasterAnnotation {
@@ -292,6 +294,9 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
 
   // Normalised values (NaN = transparent).
   const norm = new Float32Array(srcW * srcH);
+  // Per-cell alpha (0 = transparent); defaults to opaque, ramped by value when enabled.
+  const alpha = new Uint8Array(srcW * srcH).fill(255);
+  const alphaRamp = spec.alphaRamp;
   const range = max - min || 1;
   const logLo = scale === 'log' ? Math.log(Math.max(min, Number.MIN_VALUE)) : 0;
   const logRange = scale === 'log' ? Math.log(Math.max(max, Number.MIN_VALUE)) - logLo || 1 : 1;
@@ -305,6 +310,9 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
           ? (Math.log(Math.max(v, min)) - logLo) / logRange
           : (v - min) / range;
         t = t < 0 ? 0 : t > 1 ? 1 : t;
+        if (alphaRamp) alpha[i] = Math.round(Math.pow(t, 0.1) * 255);
+      } else {
+        alpha[i] = 0;
       }
       norm[i] = t;
     }
@@ -344,7 +352,7 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
     img.data[px] = r;
     img.data[px + 1] = g;
     img.data[px + 2] = b;
-    img.data[px + 3] = 255;
+    img.data[px + 3] = alpha[i];
   }
   srcCtx.putImageData(img, 0, 0);
 

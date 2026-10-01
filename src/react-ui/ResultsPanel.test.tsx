@@ -35,6 +35,8 @@ function makeSucceededRunWithLayers(engine: SimulationEngine, runId: string, lay
     visibleLayerIds: [],
     visible: false,
     layerOpacities: {},
+    alphaMask: false,
+    selectedLayerId: null,
   };
 
   // @ts-expect-error accessing private state for test setup
@@ -96,6 +98,8 @@ describe('ResultsPanel download', () => {
       visibleLayerIds: [],
       visible: false,
       layerOpacities: {},
+      alphaMask: false,
+      selectedLayerId: null,
     };
     // @ts-expect-error
     engine._state.run = { current: null, history: [record] };
@@ -167,7 +171,7 @@ describe('ResultsPanel layer selection', () => {
     expect(engine.findRun('run-1')!.visibleLayerIds).toEqual(['layer-1']);
   });
 
-  it('deselects all layers via the None radio', () => {
+  it('toggles the selected layer via the visibility (eye) button', () => {
     const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'run-1', 2);
@@ -180,8 +184,17 @@ describe('ResultsPanel layer selection', () => {
 
     fireEvent.click(screen.getByLabelText('Expand layers'));
     fireEvent.click(screen.getByLabelText('layer-0'));
-    fireEvent.click(screen.getByLabelText('None'));
+    expect(engine.findRun('run-1')!.visibleLayerIds).toEqual(['layer-0']);
+    expect(engine.findRun('run-1')!.selectedLayerId).toBe('layer-0');
+
+    // Selected layer is visible -> eye shows "Hide".
+    fireEvent.click(screen.getByTitle('Hide'));
     expect(engine.findRun('run-1')!.visibleLayerIds).toEqual([]);
+    expect(engine.findRun('run-1')!.selectedLayerId).toBe('layer-0');
+
+    // Selection preserved -> eye shows "Show"; re-shows only that layer.
+    fireEvent.click(screen.getByTitle('Show'));
+    expect(engine.findRun('run-1')!.visibleLayerIds).toEqual(['layer-0']);
   });
 
   it('updates the whole run opacity from the per-run slider', () => {

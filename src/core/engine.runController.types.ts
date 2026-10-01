@@ -66,6 +66,8 @@ export interface ResultLayerEntry {
   id: string;
   name?: string;
   envelope: MapLayerEnvelope;
+  /** Alternate masked rendering (low values transparent) used when alpha-masking is on. */
+  envelopeMasked?: MapLayerEnvelope;
   /** Optional raw artifact (e.g. GeoTIFF) included in downloads. */
   raw?: ResultLayerRaw;
 }
@@ -127,6 +129,10 @@ export interface RunRecord {
   visible: boolean;
   /** Per-layer opacity (0..1), keyed by layerId. Missing = 1. */
   layerOpacities: Record<string, number>;
+  /** When true, visible layers render their masked (low-value transparent) variant. */
+  alphaMask: boolean;
+  /** Currently selected layer (the pressed radio), independent of visibility. */
+  selectedLayerId: string | null;
 }
 
 export interface RunSummary {
@@ -145,6 +151,8 @@ export interface RunSummary {
   visible: boolean;
   partial: boolean;
   layerOpacities: Record<string, number>;
+  alphaMask: boolean;
+  selectedLayerId: string | null;
 }
 
 export interface ResultLayerActions {
