@@ -1,7 +1,7 @@
 /**
  * Declarative schema for a single editable field on a feature's `data` bag.
  *
- * The engine does not interpret the field's meaning — it only renders the
+ * The engine does not interpret the field's meaning. It only renders the
  * input declared by the app and reads/writes `feature.data[key]`.
  */
 export interface DataFieldDef {

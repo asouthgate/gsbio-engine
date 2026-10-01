@@ -101,8 +101,8 @@ function FeatureCard({
 
 /**
  * Generic feature inspector: lists features with label editing, a visibility
- * toggle, delete, and app-declared data fields. The engine stays model-agnostic
- * — the app supplies the field schema, icons, and any domain-specific extras.
+ * toggle, delete, and app-declared data fields. The engine stays model-agnostic.
+ * the app supplies the field schema, icons, and any domain-specific extras.
  */
 export function FeaturePanel({
   className = 'data-feature-list',
