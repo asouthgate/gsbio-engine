@@ -11,7 +11,7 @@ export function emptyRunRecord(runId: string, modelId: string, params: ModelPara
   return {
     runId, modelId, params, status: 'idle', result: null, error: null, progress: null,
     startedAt, finishedAt: null, log: [], layerIds: [], layerNames: {}, visibleLayerIds: [], visible: false,
-    layerOpacities: {},
+    layerOpacities: {}, alphaMask: false, selectedLayerId: null,
   };
 }
 
@@ -73,11 +73,11 @@ export function applyLayerVisibility(state: RunState, runId: string, layerId: st
   };
 }
 
-/** Single-select: make `layerId` the run's only visible layer. */
+/** Single-select: make `layerId` the run's selected (and only visible) layer. */
 export function applyLayerSelection(state: RunState, runId: string, layerId: string): RunState {
   const patch = (rec: RunRecord): RunRecord => {
     if (!rec.layerIds.includes(layerId)) return rec;
-    return withLayerVisibility(rec, [layerId]);
+    return { ...withLayerVisibility(rec, [layerId]), selectedLayerId: layerId };
   };
   if (state.current?.runId === runId) {
     return { ...state, current: patch(state.current) };
@@ -85,6 +85,18 @@ export function applyLayerSelection(state: RunState, runId: string, layerId: str
   return {
     ...state,
     history: state.history.map((r: RunRecord) => (r.runId === runId ? patch(r) : r)),
+  };
+}
+
+/** Toggle the run's alpha-mask display mode. */
+export function applyAlphaMask(state: RunState, runId: string, alphaMask: boolean): RunState {
+  const patchRec = (rec: RunRecord): RunRecord => ({ ...rec, alphaMask });
+  if (state.current?.runId === runId) {
+    return { ...state, current: patchRec(state.current) };
+  }
+  return {
+    ...state,
+    history: state.history.map((r: RunRecord) => (r.runId === runId ? patchRec(r) : r)),
   };
 }
 
@@ -113,7 +125,7 @@ export function toSummary(rec: RunRecord): RunSummary {
     startedAt: rec.startedAt, finishedAt: rec.finishedAt, log: rec.log,
     warnings: rec.log.filter((e: RunLogEntry) => e.level === 'warning').map((e: RunLogEntry) => e.message),
     layerIds: rec.layerIds, layerNames: rec.layerNames, visibleLayerIds: rec.visibleLayerIds, visible, partial,
-    layerOpacities: rec.layerOpacities,
+    layerOpacities: rec.layerOpacities, alphaMask: rec.alphaMask, selectedLayerId: rec.selectedLayerId,
   };
 }
 

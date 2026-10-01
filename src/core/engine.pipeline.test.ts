@@ -451,6 +451,82 @@ describe('run pipeline', () => {
     expect(add).toHaveBeenCalledTimes(2);
   });
 
+  it('toggleResultAlphaMask swaps visible layers to their masked envelopes', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return {
+          layers: [
+            {
+              id: 'c1',
+              envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] },
+              envelopeMasked: { kind: 'image' as const, url: 'data:1-masked', bounds: [0, 0, 1, 1] },
+            },
+            { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+          ],
+          summary: { count: 2 },
+        };
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+    engine.showResult(runId);
+    expect(engine.getSnapshot().run.current!.alphaMask).toBe(false);
+
+    engine.toggleResultAlphaMask(runId);
+    expect(engine.getSnapshot().run.current!.alphaMask).toBe(true);
+    // c1 has a masked variant; c2 falls back to its normal envelope.
+    expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ url: 'data:1-masked' }), 1);
+    expect(add).toHaveBeenCalledWith(runId, 'c2', expect.objectContaining({ url: 'data:2' }), 1);
+
+    engine.toggleResultAlphaMask(runId);
+    expect(engine.getSnapshot().run.current!.alphaMask).toBe(false);
+    expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ url: 'data:1' }), 1);
+  });
+
+  it('toggleSelectedLayer hides and re-shows only the selected layer', async () => {
+    const { engine, actions } = engineWithRun();
+    const add = actions.addResultLayer as ReturnType<typeof vi.fn>;
+    const remove = actions.removeResultLayer as ReturnType<typeof vi.fn>;
+    const provider: Executor = {
+      async preprocess() { return { payload: null }; },
+      async submit(_ctx, signal) {
+        void _ctx;
+        await delay(5, signal);
+        return {
+          layers: [
+            { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
+            { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+          ],
+          summary: { count: 2 },
+        };
+      },
+    };
+    engine.registerExecutor('hello-world', provider);
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+
+    engine.selectResultLayer(runId, 'c1');
+    expect(engine.getSnapshot().run.current!.selectedLayerId).toBe('c1');
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
+
+    // Hide the selected layer: selection is retained, visibility emptied.
+    engine.toggleSelectedLayer(runId);
+    expect(remove).toHaveBeenCalledWith(runId, 'c1');
+    expect(engine.getSnapshot().run.current!.selectedLayerId).toBe('c1');
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual([]);
+
+    // Show the selected layer again (single-select, only c1).
+    engine.toggleSelectedLayer(runId);
+    expect(add).toHaveBeenCalledWith(runId, 'c1', expect.objectContaining({ url: 'data:1' }), 1);
+    expect(engine.getSnapshot().run.current!.visibleLayerIds).toEqual(['c1']);
+  });
+
   it('per-layer, per-run, and global opacity setters update state and fan out to the renderer', async () => {
     const { engine, actions } = engineWithRun();
     const setOpacity = actions.setResultLayerOpacity as ReturnType<typeof vi.fn>;

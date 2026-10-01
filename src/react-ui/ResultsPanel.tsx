@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useResults } from '../react';
 import type { RunLogEntry, RunStatus, RunSummary } from '../core';
 
@@ -32,18 +32,22 @@ function RunRow({
   rec,
   onClear,
   onSelectLayer,
-  onSelectNone,
+  onToggleVisibility,
+  onToggleAlphaMask,
   onOpacityChange,
   onViewLog,
   onDownload,
+  icons,
 }: {
   rec: RunSummary;
   onClear: () => void;
   onSelectLayer: (layerId: string) => void;
-  onSelectNone: () => void;
+  onToggleVisibility: () => void;
+  onToggleAlphaMask: () => void;
   onOpacityChange: (opacity: number) => void;
   onViewLog?: () => void;
   onDownload?: () => void;
+  icons?: { show?: ReactNode; hide?: ReactNode };
 }) {
   const canShow = rec.status === 'succeeded' && rec.layerIds.length > 0;
   const [expanded, setExpanded] = useState(false);
@@ -52,9 +56,9 @@ function RunRow({
   const hasLog = rec.log.length > 0;
 
   const radioName = `layer-${rec.runId}`;
-  const noneSelected = rec.visibleLayerIds.length === 0;
   // All layers of a run share an opacity (set via the per-run slider).
   const runOpacity = rec.layerOpacities[rec.layerIds[0] ?? ''] ?? 1;
+  const selectedVisible = rec.selectedLayerId != null && rec.visibleLayerIds.includes(rec.selectedLayerId);
 
   return (
     <li className={`run-item run-item--${rec.status}${rec.visible ? ' run-item--visible' : ''}`}>
@@ -104,6 +108,26 @@ function RunRow({
             Download
           </button>
         )}
+        {canShow && (
+          <button
+            type="button"
+            className="btn btn-ghost run-item__visibility"
+            onClick={onToggleVisibility}
+            title={selectedVisible ? 'Hide' : 'Show'}
+          >
+            {selectedVisible ? (icons?.show ?? '👁') : (icons?.hide ?? '∅')}
+          </button>
+        )}
+        {canShow && (
+          <button
+            type="button"
+            className={`btn btn-ghost run-item__alpha-mask${rec.alphaMask ? ' is-active' : ''}`}
+            onClick={onToggleAlphaMask}
+            title="Toggle transparent colormap (ramp alpha by value)"
+          >
+            α
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-ghost run-item__clear"
@@ -132,19 +156,8 @@ function RunRow({
       )}
       {canShow && expanded && (
         <ul className="run-item__layers">
-          <li className="run-item__layer">
-            <label className="run-item__layer-label">
-              <input
-                type="radio"
-                name={radioName}
-                checked={noneSelected}
-                onChange={onSelectNone}
-              />
-              <span className="run-item__layer-id">None</span>
-            </label>
-          </li>
           {rec.layerIds.map((layerId) => {
-            const checked = rec.visibleLayerIds.length === 1 && rec.visibleLayerIds[0] === layerId;
+            const checked = rec.selectedLayerId === layerId;
             return (
               <li key={layerId} className="run-item__layer">
                 <label className="run-item__layer-label">
@@ -182,10 +195,11 @@ export interface ResultsPanelProps {
   className?: string;
   onViewLog?: (runId: string, log: RunLogEntry[]) => void;
   onDownload?: (runId: string) => void;
+  icons?: { show?: ReactNode; hide?: ReactNode };
 }
 
-export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload }: ResultsPanelProps) {
-  const { summaries, selectResultLayer, hideResult, setRunOpacity, clearResult, clearAll } = useResults();
+export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload, icons }: ResultsPanelProps) {
+  const { summaries, selectResultLayer, toggleSelectedLayer, toggleAlphaMask, setRunOpacity, clearResult, clearAll } = useResults();
   const rows = summaries;
 
   return (
@@ -207,11 +221,13 @@ export function ResultsPanel({ className = 'results-panel', onViewLog, onDownloa
               key={r.runId}
               rec={r}
               onSelectLayer={(layerId) => selectResultLayer(r.runId, layerId)}
-              onSelectNone={() => hideResult(r.runId)}
+              onToggleVisibility={() => toggleSelectedLayer(r.runId)}
+              onToggleAlphaMask={() => toggleAlphaMask(r.runId)}
               onOpacityChange={(opacity) => setRunOpacity(r.runId, opacity)}
               onClear={() => clearResult(r.runId)}
               onViewLog={onViewLog ? () => onViewLog(r.runId, r.log) : undefined}
               onDownload={onDownload ? () => onDownload(r.runId) : undefined}
+              icons={icons}
             />
           ))}
         </ul>

@@ -24,6 +24,7 @@ import {
   applyLayerVisibility,
   applyLayerSelection,
   applyLayerOpacity,
+  applyAlphaMask,
   layerOpacity as layerOpacityOf,
   findRun as findRunInState,
   allSummaries as computeAllSummaries,
@@ -264,7 +265,12 @@ export class SimulationEngine {
   private resolveRunLayers(runId: string): Map<string, MapLayerEnvelope> {
     const rec = this.findRun(runId);
     if (!rec || !rec.result) return new Map();
-    return new Map(extractResultLayers(rec.result).map((l) => [l.id, l.envelope]));
+    return new Map(
+      extractResultLayers(rec.result).map((l) => [
+        l.id,
+        rec.alphaMask && l.envelopeMasked ? l.envelopeMasked : l.envelope,
+      ]),
+    );
   }
 
   showResult = (runId: string): void => {
@@ -320,6 +326,32 @@ export class SimulationEngine {
     if (!rec || !rec.layerIds.includes(layerId)) return;
     if (rec.visibleLayerIds.includes(layerId)) this.hideResultLayer(runId, layerId);
     else this.showResultLayer(runId, layerId);
+  };
+
+  /** Toggle visibility of the run's selected layer only (selection is preserved). */
+  toggleSelectedLayer = (runId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.status !== 'succeeded') return;
+    const selected = rec.selectedLayerId;
+    if (!selected || !rec.layerIds.includes(selected)) return;
+    if (rec.visibleLayerIds.includes(selected)) this.hideResultLayer(runId, selected);
+    else this.selectResultLayer(runId, selected);
+  };
+
+  /** Toggle the run's alpha-mask (low-value transparent) rendering across all visible layers. */
+  toggleResultAlphaMask = (runId: string): void => {
+    const rec = this.findRun(runId);
+    if (!rec || rec.status !== 'succeeded' || rec.layerIds.length === 0) return;
+    this._state.run = applyAlphaMask(this._state.run, runId, !rec.alphaMask);
+    const updated = this.findRun(runId);
+    if (updated && updated.visibleLayerIds.length > 0) {
+      const layers = this.resolveRunLayers(runId);
+      for (const layerId of updated.visibleLayerIds) {
+        const envelope = layers.get(layerId);
+        if (envelope) this.mapActions?.addResultLayer(runId, layerId, envelope, layerOpacityOf(updated, layerId));
+      }
+    }
+    this.emit();
   };
 
   /** Single-select: make `layerId` the run's only visible layer. */

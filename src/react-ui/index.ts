@@ -20,5 +20,11 @@ export type { ResultsPanelProps } from './ResultsPanel';
 export { FeatureList } from './FeatureList';
 export type { FeatureListProps } from './FeatureList';
 
+export { FeaturePanel } from './FeaturePanel';
+export type { FeaturePanelProps } from './FeaturePanel';
+
+export { DataField } from './DataField';
+export type { DataFieldDef, DataFieldProps } from './DataField';
+
 export { MapScene } from './MapScene';
 export type { MapSceneProps } from './MapScene';

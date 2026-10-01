@@ -120,6 +120,8 @@ export interface ResultsHook {
   hideResultLayer: (runId: string, layerId: string) => void;
   toggleResultLayer: (runId: string, layerId: string) => void;
   selectResultLayer: (runId: string, layerId: string) => void;
+  toggleSelectedLayer: (runId: string) => void;
+  toggleAlphaMask: (runId: string) => void;
   setLayerOpacity: (runId: string, layerId: string, opacity: number) => void;
   setRunOpacity: (runId: string, opacity: number) => void;
   setGlobalResultOpacity: (opacity: number) => void;
@@ -141,6 +143,8 @@ export function useResults(): ResultsHook {
     hideResultLayer: engine.hideResultLayer,
     toggleResultLayer: engine.toggleResultLayer,
     selectResultLayer: engine.selectResultLayer,
+    toggleSelectedLayer: engine.toggleSelectedLayer,
+    toggleAlphaMask: engine.toggleResultAlphaMask,
     setLayerOpacity: engine.setLayerOpacity,
     setRunOpacity: engine.setRunOpacity,
     setGlobalResultOpacity: engine.setGlobalResultOpacity,
