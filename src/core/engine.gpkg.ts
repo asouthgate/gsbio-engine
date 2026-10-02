@@ -6,6 +6,8 @@
  * lazily via a dynamic import to keep it out of the initial bundle.
  */
 
+import type { GeometryKind, CircleGeometry } from './engine.feature.types';
+
 type GpkgModule = typeof import('@ngageoint/geopackage');
 type GpkgBoundingBox = InstanceType<GpkgModule['BoundingBox']>;
 type GeoPackageInstance = InstanceType<GpkgModule['GeoPackage']>;
@@ -34,6 +36,48 @@ export interface GpkgTable {
 
 /** Columns used to round-trip app metadata through a GeoPackage. */
 const GPKG_METADATA_COLUMNS = ['_dp_category', '_dp_label', '_dp_data', '_dp_circle'] as const;
+
+export interface DecodedGpkgFeature {
+  geometryKind: GeometryKind;
+  category: string | undefined;
+  label: string | undefined;
+  data: Record<string, unknown> | undefined;
+  circle: CircleGeometry | undefined;
+  geojson: GeoJSON.Feature;
+}
+
+function geometryKindFromGeoJson(type: string | undefined): GeometryKind {
+  if (type === 'LineString' || type === 'MultiLineString') return 'linestring';
+  if (type === 'Polygon' || type === 'MultiPolygon') return 'polygon';
+  if (type === 'MultiPoint') return 'multipoint';
+  return 'point';
+}
+
+function parseJsonObject(raw: unknown): Record<string, unknown> | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const parsed: unknown = JSON.parse(raw);
+  return parsed !== null && typeof parsed === 'object'
+    ? (parsed as Record<string, unknown>)
+    : undefined;
+}
+
+/**
+ * Decodes a GeoJSON feature written by {@link writeGpkg} back into the
+ * engine's feature model. This is the exact inverse of the metadata that
+ * `writeGpkg` stores: `_dp_category`/`_dp_label` are strings, and
+ * `_dp_data`/`_dp_circle` are JSON-encoded values.
+ */
+export function decodeGpkgFeature(gj: GeoJSON.Feature): DecodedGpkgFeature {
+  const props = (gj.properties ?? {}) as Record<string, unknown>;
+  return {
+    geometryKind: geometryKindFromGeoJson(gj.geometry?.type),
+    category: props._dp_category as string | undefined,
+    label: props._dp_label as string | undefined,
+    data: parseJsonObject(props._dp_data),
+    circle: parseJsonObject(props._dp_circle) as CircleGeometry | undefined,
+    geojson: { ...gj, properties: {} },
+  };
+}
 
 function sanitizeTableName(input: string, index: number): string {
   const base = input
