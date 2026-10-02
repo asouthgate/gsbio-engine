@@ -3,7 +3,7 @@ import type { DataFeature } from './engine.feature.types';
 
 const COORD_PRECISION = 9;
 
-function makeId(): string {
+export function makeId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
   }
