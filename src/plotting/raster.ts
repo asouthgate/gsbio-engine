@@ -310,7 +310,7 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
           ? (Math.log(Math.max(v, min)) - logLo) / logRange
           : (v - min) / range;
         t = t < 0 ? 0 : t > 1 ? 1 : t;
-        if (alphaRamp) alpha[i] = Math.round(Math.pow(t, 0.1) * 255);
+        if (alphaRamp) alpha[i] = Math.round(Math.pow(t, 0.3) * 255);
       } else {
         alpha[i] = 0;
       }
