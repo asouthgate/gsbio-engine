@@ -6,6 +6,8 @@ import { extractResultLayers } from './types';
 import { helloWorldModel } from './models/helloWorld';
 import { DataStore } from './engine.dataStore';
 import type { FileSourceState } from './engine.dataStore';
+import { parseGeoJsonToFeatures } from './engine.fileSource';
+import { readGpkgFeatureTables } from './engine.gpkg';
 import { ArtifactStore } from './engine.artifacts';
 import { ModelRegistry } from './engine.modelRegistry';
 import { replaceGeometry } from './featureHelpers';
@@ -90,6 +92,22 @@ export class SimulationEngine {
 
   addFileSourceFeatures(def: FileSourceDef, data: object): DataFeature[] {
     const parsed = this.dataStore.addGeoJsonSource(def, data);
+    for (const f of parsed) {
+      this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
+    }
+    this.emit();
+    return parsed;
+  }
+
+  async addGpkgSource(def: FileSourceDef, arrayBuffer: ArrayBuffer): Promise<DataFeature[]> {
+    const tables = await readGpkgFeatureTables(arrayBuffer);
+    const parsed = tables.flatMap((table) =>
+      parseGeoJsonToFeatures(def, {
+        type: 'FeatureCollection',
+        features: table.features as GeoJSON.Feature[],
+      }),
+    );
+    this.dataStore.addFeaturesSource(def, parsed);
     for (const f of parsed) {
       this.mapActions?.addFeatureToMap(f.id, this._withTerraDrawMode(f));
     }

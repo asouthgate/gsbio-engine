@@ -113,8 +113,7 @@ export class DataStore {
     return [drawn, ...uploads];
   }
 
-  addGeoJsonSource(def: FileSourceDef, data: object): DataFeature[] {
-    const parsed = parseGeoJsonToFeatures(def, data);
+  addFeaturesSource(def: FileSourceDef, parsed: DataFeature[]): DataFeature[] {
     const existing = this._fileSources.find((s) => s.sourceId === def.id);
 
     if (existing) {
@@ -134,5 +133,10 @@ export class DataStore {
 
     this._features = [...this._features, ...parsed];
     return parsed;
+  }
+
+  addGeoJsonSource(def: FileSourceDef, data: object): DataFeature[] {
+    const parsed = parseGeoJsonToFeatures(def, data);
+    return this.addFeaturesSource(def, parsed);
   }
 }
