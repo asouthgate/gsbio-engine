@@ -1,5 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { PMTiles, type Source, type RangeResponse } from 'pmtiles';
 import { TerraDraw2DOptions, ResultPaint } from './TerraDraw2DRenderer';
 import type { MapLayerEnvelope } from '../core';
@@ -104,6 +105,12 @@ export class MapManager {
 
   async mount(container: HTMLElement): Promise<maplibregl.Map> {
     this.unmount();
+
+    // MapLibre's default worker URL is relative to its module, which is no longer
+    // valid once a consumer bundles the engine. Let Vite emit a complete worker.
+    if (!maplibregl.getWorkerUrl()) {
+      maplibregl.setWorkerUrl(maplibreWorkerUrl);
+    }
 
     if (this.options.getToken) {
       registerPmtilesProtocol(this.options.getToken, this.options.refreshToken);
