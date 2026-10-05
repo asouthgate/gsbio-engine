@@ -233,8 +233,8 @@ describe('run pipeline', () => {
     const remove = actions.removeResultLayer as ReturnType<typeof vi.fn>;
     const multiLayerResult = {
       layers: [
-        { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
-        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+        { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] as [number, number, number, number] } },
+        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] as [number, number, number, number] } },
       ],
       summary: { count: 2 },
     };
@@ -318,8 +318,8 @@ describe('run pipeline', () => {
     engine.autoShowResults = true;
     const multiLayerResult = {
       layers: [
-        { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] } },
-        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] } },
+        { id: 'c1', envelope: { kind: 'image' as const, url: 'data:1', bounds: [0, 0, 1, 1] as [number, number, number, number] } },
+        { id: 'c2', envelope: { kind: 'image' as const, url: 'data:2', bounds: [2, 2, 3, 3] as [number, number, number, number] } },
       ],
       summary: { count: 2 },
     };

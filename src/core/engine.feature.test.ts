@@ -37,13 +37,14 @@ function feature(
 function engineWith(initialFeature: DataFeature) {
   const engine = createEngine();
   engine.addFeature(initialFeature);
-    const actions = {
+  const actions = {
     addFeatureToMap: vi.fn(),
     removeFeatureFromMap: vi.fn(),
     setFeatureVisibility: vi.fn(),
     updateFeatureGeometry: vi.fn(),
     addResultLayer: vi.fn(),
     removeResultLayer: vi.fn(),
+    setResultLayerOpacity: vi.fn(),
   };
   engine.setMapActions(actions);
   return { engine, actions };

@@ -1,4 +1,4 @@
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type { GeometryKind, DrawMode } from '../core';
 
 export type { DrawMode };

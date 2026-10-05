@@ -2,6 +2,7 @@ import {
   TerraDraw,
 } from 'terra-draw';
 import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { Renderer, SimulationEngine, DataFeature } from '../core';
 import { MapManager } from './mapManager';
 import { createAllModes } from './modes';
@@ -94,7 +95,7 @@ export class TerraDraw2DRenderer implements Renderer {
     this.cleanupBridge = control.cleanup;
   }
 
-  getMap(): maplibregl.Map | null {
+  getMap(): MapLibreMap | null {
     return this.mapManager?.instance ?? null;
   }
 
