@@ -21,7 +21,7 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsc --emitDeclarationOnly",
     "lint": "eslint src/",
     "test": "vitest run",
     "test:integration": "node test_pmtiles_engine.mjs",
@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
+    "@types/geojson": "^7946.0.16",
     "@types/proj4": "^2.19.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

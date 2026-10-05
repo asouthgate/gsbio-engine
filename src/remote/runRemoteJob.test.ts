@@ -27,7 +27,7 @@ function makeAdapter(
 ): RemoteJobAdapter<Result> {
   return {
     start: vi.fn(async () => 'job-1'),
-    fetch: vi.fn(fetchImpl),
+    fetch: vi.fn((jobId: string, _signal: AbortSignal, logOffset: number) => fetchImpl(jobId, logOffset)),
     cancel: vi.fn(async () => {}),
   };
 }
