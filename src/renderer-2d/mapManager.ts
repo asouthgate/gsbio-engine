@@ -125,6 +125,12 @@ export class MapManager {
       maxZoom: this.options.maxZoom,
       maxBounds: this.options.maxBounds,
       transformRequest: this.options.transformRequest,
+      pitch: 0,
+      bearing: 0,
+      maxPitch: 0,
+      dragRotate: false,
+      touchPitch: false,
+      touchZoomRotate: false,
     });
     await new Promise<void>((resolve) => this.map!.on('load', () => resolve()));
     return this.map;
