@@ -7,8 +7,24 @@ import {
   expandBoundsForMargins,
   projectToPixel,
   maskToInscribedCircle,
+  rasterAlpha,
 } from './raster';
 import { paletteLUT } from './palettes';
+
+describe('rasterAlpha', () => {
+  it('preserves the existing alpha ramp without a cutoff', () => {
+    expect(rasterAlpha(0.4)).toBe(Math.pow(0.4, 0.3));
+  });
+
+  it('hides below the percentile cutoff and fades smoothly above it', () => {
+    expect(rasterAlpha(0, 0.25)).toBe(0);
+    expect(rasterAlpha(0.24, 0.25)).toBe(0);
+    expect(rasterAlpha(0.25, 0.25)).toBe(0);
+    expect(rasterAlpha(0.2501, 0.25)).toBeLessThan(0.000001);
+    expect(rasterAlpha(0.625, 0.25)).toBeCloseTo(0.5);
+    expect(rasterAlpha(1, 0.25)).toBe(1);
+  });
+});
 
 describe('computeDomain', () => {
   it('uses finite values and honours nodata', () => {

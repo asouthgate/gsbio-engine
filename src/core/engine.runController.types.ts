@@ -1,6 +1,6 @@
 import type { DataFeature } from './engine.feature.types';
 import type { ModelParams } from './engine.modelRegistry.types';
-import type { MapLayerEnvelope } from './spatial.types';
+import type { MapLayerEnvelope, GeoJsonCircleStyle } from './spatial.types';
 import type { ArtifactStore } from './engine.artifacts';
 import type { RawSource } from './engine.fileSource.types';
 
@@ -66,6 +66,9 @@ export interface ResultLayerEntry {
   id: string;
   name?: string;
   envelope: MapLayerEnvelope;
+  /** Independently visible vector overlay, retained when switching rasters. */
+  overlay?: boolean;
+  legend?: (GeoJsonCircleStyle & { label: string })[];
   /** Alternate masked rendering (low values transparent) used when alpha-masking is on. */
   envelopeMasked?: MapLayerEnvelope;
   /** Optional raw artifact (e.g. GeoTIFF) included in downloads. */
@@ -136,6 +139,8 @@ export interface RunRecord {
 }
 
 export interface RunSummary {
+  overlayLayerIds?: string[];
+  layerLegends?: Record<string, NonNullable<ResultLayerEntry['legend']>>;
   runId: string;
   modelId: string;
   status: RunStatus;

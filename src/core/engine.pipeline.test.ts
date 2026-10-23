@@ -118,6 +118,33 @@ function engineWithRun(): { engine: ReturnType<typeof createEngine>; actions: Ma
 }
 
 describe('run pipeline', () => {
+  it('shows point overlays alongside rasters and preserves their independent visibility', async () => {
+    const { engine, actions } = engineWithRun();
+    engine.autoShowResults = true;
+    const points = { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } };
+    engine.registerExecutor('hello-world', {
+      async preprocess() { return { payload: null }; },
+      async submit() { return { layers: [
+        { id: 'contours', envelope: { kind: 'image' as const, url: 'contours', bounds: [0, 0, 1, 1] as [number, number, number, number] } },
+        { id: 'other', envelope: { kind: 'image' as const, url: 'other', bounds: [0, 0, 1, 1] as [number, number, number, number] } },
+        { id: 'points', overlay: true, envelope: points },
+      ] }; },
+    });
+    await engine.run();
+    const runId = engine.getSnapshot().run.current!.runId;
+    expect(engine.findRun(runId)!.visibleLayerIds).toEqual(['contours', 'points']);
+    engine.selectResultLayer(runId, 'other');
+    expect(engine.findRun(runId)!.visibleLayerIds).toEqual(['other', 'points']);
+    expect(actions.addResultLayer).toHaveBeenLastCalledWith(runId, 'points', points, 1);
+    engine.toggleResultAlphaMask(runId);
+    expect(engine.findRun(runId)!.visibleLayerIds).toEqual(['other', 'points']);
+    expect(actions.addResultLayer).toHaveBeenLastCalledWith(runId, 'points', points, 1);
+    engine.toggleResultLayer(runId, 'points');
+    expect(engine.findRun(runId)!.visibleLayerIds).toEqual(['other']);
+    engine.selectResultLayer(runId, 'contours');
+    expect(engine.findRun(runId)!.visibleLayerIds).toEqual(['contours']);
+  });
+
   it('happy path: idle -> preprocessing -> submitting -> running -> succeeded', async () => {
     const { engine } = engineWithRun();
     const { provider, calls } = makeProvider({

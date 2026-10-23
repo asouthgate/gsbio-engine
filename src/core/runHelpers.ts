@@ -77,7 +77,8 @@ export function applyLayerVisibility(state: RunState, runId: string, layerId: st
 export function applyLayerSelection(state: RunState, runId: string, layerId: string): RunState {
   const patch = (rec: RunRecord): RunRecord => {
     if (!rec.layerIds.includes(layerId)) return rec;
-    return { ...withLayerVisibility(rec, [layerId]), selectedLayerId: layerId };
+    const overlays = rec.visibleLayerIds.filter(id => rec.result?.layers.some(layer => layer.id === id && layer.overlay));
+    return { ...withLayerVisibility(rec, [layerId, ...overlays.filter(id => id !== layerId)]), selectedLayerId: layerId };
   };
   if (state.current?.runId === runId) {
     return { ...state, current: patch(state.current) };
@@ -126,6 +127,8 @@ export function toSummary(rec: RunRecord): RunSummary {
     warnings: rec.log.filter((e: RunLogEntry) => e.level === 'warning').map((e: RunLogEntry) => e.message),
     layerIds: rec.layerIds, layerNames: rec.layerNames, visibleLayerIds: rec.visibleLayerIds, visible, partial,
     layerOpacities: rec.layerOpacities, alphaMask: rec.alphaMask, selectedLayerId: rec.selectedLayerId,
+    overlayLayerIds: rec.result?.layers.filter(layer => layer.overlay).map(layer => layer.id) ?? [],
+    layerLegends: Object.fromEntries((rec.result?.layers ?? []).filter(layer => layer.legend).map(layer => [layer.id, layer.legend!])),
   };
 }
 
