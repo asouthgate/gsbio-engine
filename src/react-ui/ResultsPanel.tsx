@@ -34,6 +34,7 @@ function RunRow({
   onSelectLayer,
   onToggleLayer,
   onToggleVisibility,
+  onToggleAlphaMask,
   onOpacityChange,
   onViewLog,
   onDownload,
@@ -44,6 +45,7 @@ function RunRow({
   onSelectLayer: (layerId: string) => void;
   onToggleLayer: (layerId: string) => void;
   onToggleVisibility: () => void;
+  onToggleAlphaMask: () => void;
   onOpacityChange: (opacity: number) => void;
   onViewLog?: () => void;
   onDownload?: () => void;
@@ -118,6 +120,16 @@ function RunRow({
             {selectedVisible ? (icons?.show ?? '👁') : (icons?.hide ?? '∅')}
           </button>
         )}
+        {canShow && (
+          <button
+            type="button"
+            className={`btn btn-ghost run-item__alpha-mask${rec.alphaMask ? ' is-active' : ''}`}
+            aria-label="Toggle transparent colormap"
+            aria-pressed={rec.alphaMask}
+            title="Fade low values; current maps hide below the 25th percentile"
+            onClick={onToggleAlphaMask}
+          >α</button>
+        )}
         <button
           type="button"
           className="btn btn-ghost run-item__clear"
@@ -160,16 +172,6 @@ function RunRow({
                   />
                   <span className="run-item__layer-id">{rec.layerNames?.[layerId] ?? layerId}</span>
                 </label>
-                {rec.layerLegends?.[layerId] && (
-                  <ul className="run-item__legend" aria-label={`${rec.layerNames?.[layerId] ?? layerId} legend`}>
-                    {rec.layerLegends[layerId].map(item => (
-                      <li key={item.value} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
-                        <span aria-hidden="true" style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: item.color, border: `1px solid ${item.strokeColor ?? item.color}`, flexShrink: 0 }} />
-                        <span>{item.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </li>
             );
           })}
@@ -202,23 +204,11 @@ export interface ResultsPanelProps {
 export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload, icons }: ResultsPanelProps) {
   const { summaries, selectResultLayer, toggleResultLayer, toggleSelectedLayer, toggleAlphaMask, setRunOpacity, clearResult, clearAll } = useResults();
   const rows = summaries;
-  const completed = rows.filter(row => row.status === 'succeeded' && row.layerIds.length > 0);
-  const alphaMask = completed.length > 0 && completed.every(row => row.alphaMask);
 
   return (
     <div className={className}>
       <div className="results-panel__header">
         <h3>Results</h3>
-        {completed.length > 0 && (
-          <button
-            type="button"
-            className={`btn btn-ghost run-item__alpha-mask${alphaMask ? ' is-active' : ''}`}
-            aria-label="Toggle transparent colormap"
-            aria-pressed={alphaMask}
-            title="Fade low values; current maps hide below the 25th percentile"
-            onClick={() => completed.forEach(row => { if (row.alphaMask === alphaMask) toggleAlphaMask(row.runId); })}
-          >α</button>
-        )}
         {rows.length > 0 && (
           <button type="button" className="btn btn-ghost" onClick={clearAll}>
             Clear all
@@ -236,6 +226,7 @@ export function ResultsPanel({ className = 'results-panel', onViewLog, onDownloa
               onSelectLayer={(layerId) => selectResultLayer(r.runId, layerId)}
               onToggleLayer={(layerId) => toggleResultLayer(r.runId, layerId)}
               onToggleVisibility={() => toggleSelectedLayer(r.runId)}
+              onToggleAlphaMask={() => toggleAlphaMask(r.runId)}
               onOpacityChange={(opacity) => setRunOpacity(r.runId, opacity)}
               onClear={() => clearResult(r.runId)}
               onViewLog={onViewLog ? () => onViewLog(r.runId, r.log) : undefined}

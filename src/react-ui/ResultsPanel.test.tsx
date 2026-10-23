@@ -152,7 +152,7 @@ describe('ResultsPanel download', () => {
 });
 
 describe('ResultsPanel layer selection', () => {
-  it('provides an independent overlay checkbox and its marker legend', () => {
+  it('provides an independent overlay checkbox without displaying the map legend in the panel', () => {
     const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'overlay-run', 2);
@@ -166,26 +166,30 @@ describe('ResultsPanel layer selection', () => {
     render(<EngineProvider engine={engine}><ResultsPanel /></EngineProvider>);
     fireEvent.click(screen.getByLabelText('Expand layers'));
     expect(screen.getByRole('checkbox', { name: 'layer-1' })).toBeDefined();
-    expect(screen.getByText('Estimated roost')).toBeDefined();
-    expect(screen.getByText('Center of calls')).toBeDefined();
-    expect(screen.getByText('Detector')).toBeDefined();
+    expect(screen.queryByText('Estimated roost')).toBeNull();
+    expect(screen.queryByText('Center of calls')).toBeNull();
+    expect(screen.queryByText('Detector')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'layer-1' }));
     expect(engine.findRun('overlay-run')!.visibleLayerIds).toEqual(['layer-0']);
   });
 
-  it('moves the existing alpha toggle to the Results header and applies it to completed runs', () => {
+  it('keeps alpha toggles local to each result', () => {
     const engine = createEngine();
     setupEngine(engine);
     makeSucceededRunWithLayers(engine, 'alpha-1', 1);
     makeSucceededRunWithLayers(engine, 'alpha-2', 1);
     render(<EngineProvider engine={engine}><ResultsPanel /></EngineProvider>);
-    const button = screen.getByRole('button', { name: 'Toggle transparent colormap' });
-    expect(button.closest('.results-panel__header')).not.toBeNull();
+    const [button, otherButton] = screen.getAllByRole('button', { name: 'Toggle transparent colormap' });
+    expect(button.closest('.run-item')).not.toBeNull();
+    expect(button.closest('.results-panel__header')).toBeNull();
     fireEvent.click(button);
-    expect(engine.findRun('alpha-1')!.alphaMask).toBe(true);
+    expect(engine.findRun('alpha-1')!.alphaMask).toBe(false);
     expect(engine.findRun('alpha-2')!.alphaMask).toBe(true);
     fireEvent.click(button);
     expect(engine.findRun('alpha-1')!.alphaMask).toBe(false);
+    expect(engine.findRun('alpha-2')!.alphaMask).toBe(false);
+    fireEvent.click(otherButton);
+    expect(engine.findRun('alpha-1')!.alphaMask).toBe(true);
     expect(engine.findRun('alpha-2')!.alphaMask).toBe(false);
   });
 
