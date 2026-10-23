@@ -8,13 +8,13 @@ const ACTIVE: ReadonlySet<RunStatus> = new Set([
 ]);
 
 const PHASE_LABEL: Record<RunStatus, string> = {
-  idle: 'Run model',
+  idle: 'Run',
   preprocessing: 'Preparing…',
-  submitting: 'Submitting…',
+  submitting: 'Loading…',
   running: 'Running…',
-  succeeded: 'Run model',
-  failed: 'Run model',
-  cancelled: 'Run model',
+  succeeded: 'Run',
+  failed: 'Run',
+  cancelled: 'Run',
 };
 
 export interface RunPanelProps {

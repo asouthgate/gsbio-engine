@@ -71,7 +71,7 @@ export class TerraDraw2DRenderer implements Renderer {
 
     const adapter = new TerraDrawMapLibreGLAdapter({ map, coordinatePrecision: 9 });
 
-    const modes = createAllModes(this.featurePaints, this.compositeModes);
+    const modes = createAllModes(this.featurePaints, this.compositeModes, this.options.featureStyles?.selectionColor);
 
     const draw = new TerraDraw({
       adapter,

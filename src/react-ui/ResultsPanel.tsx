@@ -5,7 +5,7 @@ import type { RunLogEntry, RunStatus, RunSummary } from '../core';
 const STATUS_TEXT: Record<RunStatus, string> = {
   idle: 'Idle',
   preprocessing: 'Preparing…',
-  submitting: 'Submitting…',
+  submitting: 'Loading…',
   running: 'Running…',
   succeeded: 'Completed',
   failed: 'Failed',
