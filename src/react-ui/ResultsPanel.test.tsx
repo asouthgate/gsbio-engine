@@ -152,6 +152,47 @@ describe('ResultsPanel download', () => {
 });
 
 describe('ResultsPanel layer selection', () => {
+  it('provides an independent overlay checkbox without displaying the map legend in the panel', () => {
+    const engine = createEngine();
+    setupEngine(engine);
+    makeSucceededRunWithLayers(engine, 'overlay-run', 2);
+    const overlay = engine.findRun('overlay-run')!.result!.layers[1];
+    overlay.overlay = true;
+    overlay.legend = [{ value: 'roost', label: 'Estimated roost', color: '#e11d48' },
+      { value: 'calls', label: 'Center of calls', color: '#2563eb' },
+      { value: 'detector', label: 'Detector', color: '#111111' }];
+    engine.selectResultLayer('overlay-run', 'layer-0');
+    engine.showResultLayer('overlay-run', 'layer-1');
+    render(<EngineProvider engine={engine}><ResultsPanel /></EngineProvider>);
+    fireEvent.click(screen.getByLabelText('Expand layers'));
+    expect(screen.getByRole('checkbox', { name: 'layer-1' })).toBeDefined();
+    expect(screen.queryByText('Estimated roost')).toBeNull();
+    expect(screen.queryByText('Center of calls')).toBeNull();
+    expect(screen.queryByText('Detector')).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'layer-1' }));
+    expect(engine.findRun('overlay-run')!.visibleLayerIds).toEqual(['layer-0']);
+  });
+
+  it('keeps alpha toggles local to each result', () => {
+    const engine = createEngine();
+    setupEngine(engine);
+    makeSucceededRunWithLayers(engine, 'alpha-1', 1);
+    makeSucceededRunWithLayers(engine, 'alpha-2', 1);
+    render(<EngineProvider engine={engine}><ResultsPanel /></EngineProvider>);
+    const [button, otherButton] = screen.getAllByRole('button', { name: 'Toggle transparent colormap' });
+    expect(button.closest('.run-item')).not.toBeNull();
+    expect(button.closest('.results-panel__header')).toBeNull();
+    fireEvent.click(button);
+    expect(engine.findRun('alpha-1')!.alphaMask).toBe(false);
+    expect(engine.findRun('alpha-2')!.alphaMask).toBe(true);
+    fireEvent.click(button);
+    expect(engine.findRun('alpha-1')!.alphaMask).toBe(false);
+    expect(engine.findRun('alpha-2')!.alphaMask).toBe(false);
+    fireEvent.click(otherButton);
+    expect(engine.findRun('alpha-1')!.alphaMask).toBe(true);
+    expect(engine.findRun('alpha-2')!.alphaMask).toBe(false);
+  });
+
   it('selects a single layer via radio and replaces the previous selection', () => {
     const engine = createEngine();
     setupEngine(engine);

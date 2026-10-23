@@ -31,6 +31,7 @@ export function makeComposite(
 export function createAllModes(
   featurePaints: Record<DrawMode, any>,
   compositeModes: Map<string, { drawMode: DrawMode; category: string; style: any; options?: Record<string, unknown> }>,
+  selectionColor?: string,
 ): never[] {
   const selectFlags: Record<string, unknown> = {
     point: { feature: { draggable: true } },
@@ -57,7 +58,20 @@ export function createAllModes(
   );
 
   return [
-    new TerraDrawSelectMode({ flags: selectFlags } as never) as never,
+    new TerraDrawSelectMode({
+      flags: selectFlags,
+      ...(selectionColor ? { styles: {
+        selectedPointColor: selectionColor,
+        selectedPointOutlineColor: selectionColor,
+        selectedLineStringColor: selectionColor,
+        selectedPolygonColor: selectionColor,
+        selectedPolygonOutlineColor: selectionColor,
+        selectionPointColor: selectionColor,
+        selectionPointOutlineColor: selectionColor,
+        midPointColor: selectionColor,
+        midPointOutlineColor: selectionColor,
+      } } : {}),
+    } as never) as never,
     new TerraDrawPointMode({ styles: toPointStyles(featurePaints.point) }) as never,
     new TerraDrawLineStringMode({ styles: toLineStringStyles(featurePaints.linestring) }) as never,
     new TerraDrawPolygonMode({ styles: toPolygonStyles(featurePaints.polygon) }) as never,

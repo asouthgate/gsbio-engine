@@ -23,6 +23,7 @@ export interface FeatureToolStyle {
 }
 
 export interface FeatureStyleConfig {
+  selectionColor?: string;
   point?: ShapePaint;
   linestring?: ShapePaint;
   polygon?: ShapePaint;

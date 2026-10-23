@@ -393,6 +393,11 @@ export class SimulationEngine {
     for (const id of rec.visibleLayerIds) this.mapActions?.removeResultLayer(runId, id);
     this.mapActions?.addResultLayer(runId, layerId, envelope, layerOpacityOf(rec, layerId));
     this._state.run = applyLayerSelection(this._state.run, runId, layerId);
+    for (const id of this.findRun(runId)!.visibleLayerIds) {
+      if (id === layerId) continue;
+      const overlay = layers.get(id);
+      if (overlay) this.mapActions?.addResultLayer(runId, id, overlay, layerOpacityOf(rec, id));
+    }
     this.emit();
   };
 
@@ -575,6 +580,9 @@ export class SimulationEngine {
             const pick = autoIds[0] ?? defaultLayerId ?? layerIds[0];
             if (pick && layerIds.includes(pick)) {
               this.selectResultLayer(runId, pick);
+              for (const layer of layers) {
+                if (layer.overlay && layer.id !== pick) this.showResultLayer(runId, layer.id);
+              }
             }
           }
         }

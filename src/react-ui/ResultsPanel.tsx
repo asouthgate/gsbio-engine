@@ -5,7 +5,7 @@ import type { RunLogEntry, RunStatus, RunSummary } from '../core';
 const STATUS_TEXT: Record<RunStatus, string> = {
   idle: 'Idle',
   preprocessing: 'Preparing…',
-  submitting: 'Submitting…',
+  submitting: 'Loading…',
   running: 'Running…',
   succeeded: 'Completed',
   failed: 'Failed',
@@ -32,6 +32,7 @@ function RunRow({
   rec,
   onClear,
   onSelectLayer,
+  onToggleLayer,
   onToggleVisibility,
   onToggleAlphaMask,
   onOpacityChange,
@@ -42,6 +43,7 @@ function RunRow({
   rec: RunSummary;
   onClear: () => void;
   onSelectLayer: (layerId: string) => void;
+  onToggleLayer: (layerId: string) => void;
   onToggleVisibility: () => void;
   onToggleAlphaMask: () => void;
   onOpacityChange: (opacity: number) => void;
@@ -122,11 +124,11 @@ function RunRow({
           <button
             type="button"
             className={`btn btn-ghost run-item__alpha-mask${rec.alphaMask ? ' is-active' : ''}`}
+            aria-label="Toggle transparent colormap"
+            aria-pressed={rec.alphaMask}
+            title="Fade low values; current maps hide below the 25th percentile"
             onClick={onToggleAlphaMask}
-            title="Toggle transparent colormap (ramp alpha by value)"
-          >
-            α
-          </button>
+          >α</button>
         )}
         <button
           type="button"
@@ -157,15 +159,16 @@ function RunRow({
       {canShow && expanded && (
         <ul className="run-item__layers">
           {rec.layerIds.map((layerId) => {
-            const checked = rec.selectedLayerId === layerId;
+            const overlay = rec.overlayLayerIds?.includes(layerId);
+            const checked = overlay ? rec.visibleLayerIds.includes(layerId) : rec.selectedLayerId === layerId;
             return (
               <li key={layerId} className="run-item__layer">
                 <label className="run-item__layer-label">
                   <input
-                    type="radio"
-                    name={radioName}
+                    type={overlay ? 'checkbox' : 'radio'}
+                    name={overlay ? undefined : radioName}
                     checked={checked}
-                    onChange={() => onSelectLayer(layerId)}
+                    onChange={() => overlay ? onToggleLayer(layerId) : onSelectLayer(layerId)}
                   />
                   <span className="run-item__layer-id">{rec.layerNames?.[layerId] ?? layerId}</span>
                 </label>
@@ -199,7 +202,7 @@ export interface ResultsPanelProps {
 }
 
 export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload, icons }: ResultsPanelProps) {
-  const { summaries, selectResultLayer, toggleSelectedLayer, toggleAlphaMask, setRunOpacity, clearResult, clearAll } = useResults();
+  const { summaries, selectResultLayer, toggleResultLayer, toggleSelectedLayer, toggleAlphaMask, setRunOpacity, clearResult, clearAll } = useResults();
   const rows = summaries;
 
   return (
@@ -221,6 +224,7 @@ export function ResultsPanel({ className = 'results-panel', onViewLog, onDownloa
               key={r.runId}
               rec={r}
               onSelectLayer={(layerId) => selectResultLayer(r.runId, layerId)}
+              onToggleLayer={(layerId) => toggleResultLayer(r.runId, layerId)}
               onToggleVisibility={() => toggleSelectedLayer(r.runId)}
               onToggleAlphaMask={() => toggleAlphaMask(r.runId)}
               onOpacityChange={(opacity) => setRunOpacity(r.runId, opacity)}

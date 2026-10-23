@@ -42,6 +42,8 @@ export interface DisplayMeta {
   circularMask?: boolean;
   /** When true, alpha ramps linearly with the normalised value (0 = transparent, 1 = opaque). */
   alphaRamp?: boolean;
+  /** Normalised cutoff before smoothly fading to opaque (0..1). */
+  alphaCutoff?: number;
 }
 
 export interface RasterAnnotation {
@@ -153,6 +155,12 @@ export function normalizeValue(v: number, min: number, max: number, scale: Raste
   if (range <= 0) return 0;
   const t = (v - min) / range;
   return t < 0 ? 0 : t > 1 ? 1 : t;
+}
+
+export function rasterAlpha(t: number, cutoff = 0): number {
+  if (cutoff <= 0) return Math.pow(t, 0.3);
+  const u = Math.max(0, Math.min(1, (t - cutoff) / (1 - cutoff)));
+  return u * u * (3 - 2 * u);
 }
 
 /** Human-facing value for a colorbar tick (inverts pre-applied transforms). */
@@ -310,7 +318,7 @@ export async function plotRaster(grid: RasterGrid, spec: RasterPlotSpec): Promis
           ? (Math.log(Math.max(v, min)) - logLo) / logRange
           : (v - min) / range;
         t = t < 0 ? 0 : t > 1 ? 1 : t;
-        if (alphaRamp) alpha[i] = Math.round(Math.pow(t, 0.3) * 255);
+        if (alphaRamp) alpha[i] = Math.round(rasterAlpha(t, spec.alphaCutoff) * 255);
       } else {
         alpha[i] = 0;
       }
