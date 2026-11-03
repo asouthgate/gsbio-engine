@@ -508,6 +508,7 @@ export class SimulationEngine {
 
     const exec = async (): Promise<void> => {
       const record = emptyRunRecord(runId, modelId, params, startedAt);
+      record.stage = stage;
       this._state.run = { ...pushCurrentToHistory(this._state.run), current: record };
       this.emit();
 
@@ -523,7 +524,7 @@ export class SimulationEngine {
         if (this._abort === ac && !ac.signal.aborted) rawAppend(level, message);
       };
 
-      rawAppend('info', `Run started · model "${modelId}"`);
+      rawAppend('info', `Run started -- model "${modelId}"`);
       try {
         const executor = this._executors.get(modelId);
         if (!executor) throw new Error(`No executor registered for model "${modelId}"`);

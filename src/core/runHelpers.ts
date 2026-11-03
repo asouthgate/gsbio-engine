@@ -122,7 +122,7 @@ export function toSummary(rec: RunRecord): RunSummary {
   const visible = rec.visibleLayerIds.length > 0;
   const partial = rec.layerIds.length > 0 && rec.visibleLayerIds.length > 0 && rec.visibleLayerIds.length < rec.layerIds.length;
   return {
-    runId: rec.runId, modelId: rec.modelId, status: rec.status, error: rec.error, progress: rec.progress,
+    runId: rec.runId, modelId: rec.modelId, stage: rec.stage, status: rec.status, error: rec.error, progress: rec.progress,
     startedAt: rec.startedAt, finishedAt: rec.finishedAt, log: rec.log,
     warnings: rec.log.filter((e: RunLogEntry) => e.level === 'warning').map((e: RunLogEntry) => e.message),
     layerIds: rec.layerIds, layerNames: rec.layerNames, visibleLayerIds: rec.visibleLayerIds, visible, partial,

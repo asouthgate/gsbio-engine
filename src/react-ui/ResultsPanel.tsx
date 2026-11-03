@@ -1,20 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { useResults } from '../react';
-import type { RunLogEntry, RunStatus, RunSummary } from '../core';
+import type { RunLogEntry, RunSummary } from '../core';
 
-const STATUS_TEXT: Record<RunStatus, string> = {
-  idle: 'Idle',
-  preprocessing: 'Preparing…',
-  submitting: 'Loading…',
-  running: 'Running…',
-  succeeded: 'Completed',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-};
-
-function timeOf(ts: number | null): string {
-  if (ts == null) return '';
-  return new Date(ts).toLocaleTimeString();
+function runDateTime(ts: number): string {
+  const date = new Date(ts);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 /** Compact `HH:MM:SS.mmm` for a log entry timestamp — keeps audit rows
@@ -30,6 +21,7 @@ function logTimeOf(ts: number): string {
 
 function RunRow({
   rec,
+  name,
   onClear,
   onSelectLayer,
   onToggleLayer,
@@ -41,6 +33,7 @@ function RunRow({
   icons,
 }: {
   rec: RunSummary;
+  name: string;
   onClear: () => void;
   onSelectLayer: (layerId: string) => void;
   onToggleLayer: (layerId: string) => void;
@@ -65,8 +58,7 @@ function RunRow({
   return (
     <li className={`run-item run-item--${rec.status}${rec.visible ? ' run-item--visible' : ''}`}>
       <div className="run-item__head">
-        <span className="run-item__name">{rec.modelId} · {timeOf(rec.startedAt)}</span>
-        <span className="run-item__status">{STATUS_TEXT[rec.status]}</span>
+        <span className="run-item__name">{name.charAt(0).toUpperCase() + name.slice(1)} {runDateTime(rec.startedAt)}</span>
       </div>
       {rec.error && <p className="run-item__error">{rec.error}</p>}
       {hasWarnings && (
@@ -97,7 +89,7 @@ function RunRow({
             aria-label={onViewLog ? 'Open full-page log' : 'Toggle inline log'}
             title={onViewLog ? 'Open full-page log' : 'Toggle inline log'}
           >
-            Log ({rec.log.length})
+            Log
           </button>
         )}
         {canShow && onDownload && (
@@ -195,13 +187,14 @@ function RunRow({
 }
 
 export interface ResultsPanelProps {
+  runName?: (run: RunSummary) => string;
   className?: string;
   onViewLog?: (runId: string, log: RunLogEntry[]) => void;
   onDownload?: (runId: string) => void;
   icons?: { show?: ReactNode; hide?: ReactNode };
 }
 
-export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload, icons }: ResultsPanelProps) {
+export function ResultsPanel({ className = 'results-panel', onViewLog, onDownload, icons, runName }: ResultsPanelProps) {
   const { summaries, selectResultLayer, toggleResultLayer, toggleSelectedLayer, toggleAlphaMask, setRunOpacity, clearResult, clearAll } = useResults();
   const rows = summaries;
 
@@ -223,6 +216,7 @@ export function ResultsPanel({ className = 'results-panel', onViewLog, onDownloa
             <RunRow
               key={r.runId}
               rec={r}
+              name={runName ? runName(r) : r.modelId}
               onSelectLayer={(layerId) => selectResultLayer(r.runId, layerId)}
               onToggleLayer={(layerId) => toggleResultLayer(r.runId, layerId)}
               onToggleVisibility={() => toggleSelectedLayer(r.runId)}
