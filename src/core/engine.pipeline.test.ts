@@ -410,7 +410,7 @@ describe('run pipeline', () => {
     const run = engine.getSnapshot().run.current!;
     const messages = run.log.map((e) => `[${e.level}] ${e.message}`);
     // Lifecycle entries were appended by the engine.
-    expect(messages).toContain('[info] Run started · model "hello-world"');
+    expect(messages).toContain('[info] Run started -- model "hello-world"');
     expect(messages).toContain('[info] Preprocessing…');
     expect(messages).toContain('[info] Submitting…');
     expect(messages).toContain('[info] Completed · 1 layer');
@@ -612,10 +612,10 @@ describe('run pipeline', () => {
     expect(cur.status).toBe('succeeded');
     // The aborted run's onLog call should have fired while it was active, but
     // any late call landing after abort must not appear in the new run's log.
-    const firstStartedEntry = cur.log.findIndex((e) => e.message === 'Run started · model "hello-world"');
+    const firstStartedEntry = cur.log.findIndex((e) => e.message === 'Run started -- model "hello-world"');
     // There should be exactly one "Run started" entry in the current run's log
     // because the aborted run's record was dropped (RUN_REQUEST replaced current).
-    expect(cur.log.filter((e) => e.message === 'Run started · model "hello-world"')).toHaveLength(1);
+    expect(cur.log.filter((e) => e.message === 'Run started -- model "hello-world"')).toHaveLength(1);
     expect(firstStartedEntry).toBeGreaterThanOrEqual(0);
   });
 });

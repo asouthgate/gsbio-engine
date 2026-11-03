@@ -483,7 +483,6 @@ function drawColorbar(
       ctx.fillRect(x, y + py, opts.barWidth, 1);
     }
     ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-    ctx.strokeRect(x + lineWidth / 2, y + lineWidth / 2, opts.barWidth - lineWidth, h - lineWidth);
 
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
@@ -508,7 +507,6 @@ function drawColorbar(
       ctx.fillRect(x + px, y, 1, opts.barWidth);
     }
     ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-    ctx.strokeRect(x + lineWidth / 2, y + lineWidth / 2, w - lineWidth, opts.barWidth - lineWidth);
 
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';

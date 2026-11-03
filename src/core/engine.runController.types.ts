@@ -116,6 +116,7 @@ export type RunProgressStep = 'preprocess' | 'submit' | 'stream';
 export interface RunRecord {
   runId: string;
   modelId: string;
+  stage?: string;
   taskId?: string;
   params: ModelParams;
   status: RunStatus;
@@ -143,6 +144,7 @@ export interface RunSummary {
   layerLegends?: Record<string, NonNullable<ResultLayerEntry['legend']>>;
   runId: string;
   modelId: string;
+  stage?: string;
   status: RunStatus;
   error: string | null;
   progress: RunProgress | null;
