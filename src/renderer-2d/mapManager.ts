@@ -130,8 +130,9 @@ export class MapManager {
       maxPitch: 0,
       dragRotate: false,
       touchPitch: false,
-      touchZoomRotate: false,
+      touchZoomRotate: true,
     });
+    this.map.touchZoomRotate.disableRotation();
     await new Promise<void>((resolve) => this.map!.on('load', () => resolve()));
     return this.map;
   }
