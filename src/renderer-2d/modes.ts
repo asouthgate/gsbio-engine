@@ -32,7 +32,7 @@ export function makeComposite(
     case 'polygon':
       return new TerraDrawPolygonMode({ modeName: name, showCoordinatePoints: true, styles: toPolygonStyles(paint) }) as never;
     case 'circle':
-      return new TapCircleMode({ modeName: name, styles: toPolygonStyles(paint) }) as never;
+      return new TapCircleMode({ modeName: name, drawInteraction: 'click-move-or-drag', styles: toPolygonStyles(paint) }) as never;
     default:
       throw new Error(`Cannot create composite mode for ${drawMode}`);
   }
@@ -85,7 +85,7 @@ export function createAllModes(
     new TerraDrawPointMode({ styles: toPointStyles(featurePaints.point) }) as never,
     new TerraDrawLineStringMode({ showCoordinatePoints: true, styles: toLineStringStyles(featurePaints.linestring) }) as never,
     new TerraDrawPolygonMode({ showCoordinatePoints: true, styles: toPolygonStyles(featurePaints.polygon) }) as never,
-    new TapCircleMode({ styles: toPolygonStyles(featurePaints.circle) }) as never,
+    new TapCircleMode({ drawInteraction: 'click-move-or-drag', styles: toPolygonStyles(featurePaints.circle) }) as never,
     ...compositeModeInstances,
   ];
 }

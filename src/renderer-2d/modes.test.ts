@@ -30,6 +30,39 @@ const tap = (lng: number, lat: number) => ({
 });
 
 describe('drawing without pointer hover', () => {
+  it('previews and finishes a roost circle by dragging', () => {
+    const { mode, store, onFinish } = setup('circle');
+    const setDraggability = vi.fn();
+    mode.onDragStart(tap(0, 51), setDraggability);
+    expect(setDraggability).toHaveBeenLastCalledWith(false);
+
+    mode.onDrag(tap(0.01, 51), setDraggability);
+    const preview = store.copyAll().find((feature) => feature.geometry.type === 'Polygon')!;
+    expect(preview.properties.radiusKilometers).toBeGreaterThan(0.5);
+    expect(onFinish).not.toHaveBeenCalled();
+
+    mode.onDragEnd(tap(0.01, 51), setDraggability);
+    expect(onFinish).toHaveBeenCalledOnce();
+    expect(setDraggability).toHaveBeenLastCalledWith(true);
+  });
+
+  it('hides building coordinate markers when the polygon is completed', () => {
+    const { mode, store, onFinish } = setup('polygon');
+    mode.onClick(tap(0, 51));
+    mode.onClick(tap(0.1, 51));
+    mode.onClick(tap(0.1, 51.1));
+    mode.onClick(tap(0, 51));
+
+    expect(onFinish).toHaveBeenCalledOnce();
+    const points = store.copyAll().filter((feature) => feature.geometry.type === 'Point');
+    expect(points.length).toBeGreaterThan(0);
+    for (const point of points) {
+      const style = mode.styleFeature(point);
+      expect(style.pointOpacity).toBe(0);
+      expect(style.pointOutlineOpacity).toBe(0);
+    }
+  });
+
   it('sets the roost radius from the second tap without a mouse move', () => {
     const { mode, store, onFinish } = setup('circle');
     mode.onClick(tap(0, 51));
