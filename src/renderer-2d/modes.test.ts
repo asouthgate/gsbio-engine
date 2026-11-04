@@ -41,7 +41,7 @@ describe('drawing without pointer hover', () => {
     expect(circle.properties.radiusKilometers).toBeLessThan(1);
   });
 
-  it.each(['polygon', 'linestring'] as const)('renders a point after the first %s tap', (drawMode) => {
+  it.each(['polygon', 'linestring'] as const)('renders a point after the first %s tap', (drawMode: 'polygon' | 'linestring') => {
     const { mode, store } = setup(drawMode);
     mode.onClick(tap(0, 51));
 
