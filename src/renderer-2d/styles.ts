@@ -1,4 +1,8 @@
 import type { DrawMode, ShapePaint } from './types';
+import type { TerraDrawPolygonMode } from 'terra-draw';
+
+const drawingPointOpacity = (feature: Parameters<TerraDrawPolygonMode['styleFeature']>[0]): number =>
+  feature.properties.currentlyDrawing === true ? 1 : 0;
 
 export function compositeModeName(drawMode: DrawMode, category: string): string {
   return `${drawMode}__${category}`;
@@ -24,7 +28,10 @@ export function toLineStringStyles(p: ShapePaint): Record<string, unknown> {
 }
 
 export function toPolygonStyles(p: ShapePaint): Record<string, unknown> {
-  const s: any = {};
+  const s: any = {
+    coordinatePointOpacity: drawingPointOpacity,
+    coordinatePointOutlineOpacity: drawingPointOpacity,
+  };
   if (p.fillColor) s.fillColor = p.fillColor;
   if (p.fillOpacity != null) s.fillOpacity = p.fillOpacity;
   if (p.outlineColor) s.outlineColor = p.outlineColor;
